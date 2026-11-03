@@ -28,24 +28,44 @@ class GroqService:
     ) -> Optional[str]:
         if not self.client:
             return None
-        try:
-            kwargs: Dict[str, Any] = {
-                "model": settings.MODEL_NAME,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            }
-            if json_mode:
-                kwargs["response_format"] = {"type": "json_object"}
 
-            response = self.client.chat.completions.create(**kwargs)
-            return response.choices[0].message.content
-        except Exception as e:
-            print(f"[GroqService] Groq API completion error: {e}")
-            return None
+        # Multi-model candidate fallback to guarantee resilience
+        candidate_models = [
+            settings.MODEL_NAME,
+            "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile",
+            "llama-3.1-70b-versatile",
+            "mixtral-8x7b-32768"
+        ]
+        # De-duplicate while preserving priority order
+        seen = set()
+        models_to_try = [m for m in candidate_models if not (m in seen or seen.add(m))]
+
+        for model in models_to_try:
+            try:
+                kwargs: Dict[str, Any] = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
+                if json_mode:
+                    kwargs["response_format"] = {"type": "json_object"}
+
+                response = self.client.chat.completions.create(**kwargs)
+                return response.choices[0].message.content
+            except Exception as e:
+                err_msg = str(e)
+                if "model_not_found" in err_msg or "does not exist" in err_msg or "404" in err_msg:
+                    print(f"[GroqService] Model '{model}' unavailable, trying fallback candidate...")
+                    continue
+                print(f"[GroqService] Groq API completion error with model '{model}': {e}")
+                return None
+
+        return None
 
 groq_service = GroqService()
 

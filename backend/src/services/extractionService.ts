@@ -63,70 +63,57 @@ export interface ExtractedDocument {
 }
 
 /**
- * Tier 1: IBM Docling Document Conversion Integration.
- * Calls Docling Serve or ai-service to convert complex academic PDFs, LaTeX equations,
- * and multi-column layouts into structured Markdown.
+ * Tier 1: FastAPI AI Microservice (pypdf Document Extraction).
+ * Calls ai-service /extract-pdf to extract complex academic PDFs, LaTeX equations,
+ * and multi-column documents with layout preservation via pure Python pypdf.
  */
-async function extractWithDoclingService(
+async function extractWithAiServicePdf(
   buffer: Buffer,
   fileName: string
 ): Promise<{ text: string; pages: ExtractedPage[]; pageCount: number } | null> {
-  const targetUrl = config.doclingApiUrl || (config.aiServiceUrl ? `${config.aiServiceUrl.replace(/\/+$/, '')}/convert-docling` : null)
-  if (!targetUrl) return null
+  if (!config.aiServiceUrl) return null
 
   try {
-    const isDoclingServe = targetUrl.includes(':5001') || targetUrl.includes('/v1')
-    const endpoint = isDoclingServe ? `${targetUrl.replace(/\/+$/, '')}/v1/convert/file` : targetUrl
-
+    const endpoint = `${config.aiServiceUrl.replace(/\/+$/, '')}/extract-pdf`
     const formData = new FormData()
     const blob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' })
     formData.append('file', blob, fileName)
-    formData.append('files', blob, fileName) // supports both Docling Serve ('files') and ai-service ('file')
-    formData.append('to_formats', 'md')
-
-    const headers: Record<string, string> = {}
-    if (process.env.DOCLING_API_KEY) {
-      headers['X-Api-Key'] = process.env.DOCLING_API_KEY
-    }
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const timeout = setTimeout(() => controller.abort(), 10000)
 
     const resp = await fetch(endpoint, {
       method: 'POST',
       body: formData,
-      headers,
       signal: controller.signal,
     })
     clearTimeout(timeout)
 
     if (!resp.ok) {
-      console.warn(`[Docling] HTTP ${resp.status} from ${endpoint}`)
+      console.warn(`[Extraction] HTTP ${resp.status} from ${endpoint}`)
       return null
     }
 
     const data: any = await resp.json()
-    const markdown = data?.text || data?.document?.export_to_markdown || data?.markdown || ''
-    if (markdown && markdown.trim().length > 20) {
-      console.log(`[Docling] Pristine conversion complete for ${fileName} (${markdown.length} chars)`)
-      const pageSplits = markdown.split(/<!--\s*page\s*(\d+)\s*-->/i)
-      const pages: ExtractedPage[] = []
-      if (pageSplits.length > 2) {
-        for (let i = 1; i < pageSplits.length; i += 2) {
-          const pNum = parseInt(pageSplits[i], 10) || Math.floor(i / 2) + 1
-          pages.push({ pageNumber: pNum, text: pageSplits[i + 1]?.trim() || '' })
-        }
-      } else {
-        pages.push({ pageNumber: 1, text: markdown.trim() })
+    const text = data?.text || ''
+    if (text && text.trim().length > 10) {
+      console.log(`[Extraction] pypdf conversion complete for ${fileName} (${text.length} chars)`)
+      const rawPages = Array.isArray(data?.pages) ? data.pages : []
+      const pages: ExtractedPage[] = rawPages.map((p: any, i: number) => ({
+        pageNumber: typeof p.pageNumber === 'number' ? p.pageNumber : i + 1,
+        text: typeof p.text === 'string' ? p.text : '',
+      }))
+      if (pages.length === 0) {
+        pages.push({ pageNumber: 1, text: text.trim() })
       }
       return {
-        text: markdown.trim(),
+        text: text.trim(),
         pages,
         pageCount: data?.pageCount || pages.length || 1,
       }
     }
   } catch (err: any) {
-    console.warn(`[Docling] Service connection unavailable (${err?.message || err}), using layout-reconstructed in-process engine`)
+    console.warn(`[Extraction] ai-service pypdf unavailable (${err?.message || err}), falling back to in-process engine`)
   }
   return null
 }
@@ -181,18 +168,18 @@ function reconstructPageFromItems(items: any[]): string {
 
 /**
  * Multi-Tier PDF Text & Formula Extractor:
- * Tier 1: IBM Docling (REST API / ai-service) for pristine academic LaTeX & tables
- * Tier 2: 2D Spatial Layout Reconstruction via `unpdf` extractTextItems & CMap decoding
- * Tier 3: Pure Node.js `node:zlib` Flate stream inflation & Tj/TJ text extraction
+ * Tier 1: FastAPI AI Microservice (pypdf layout extraction)
+ * Tier 2: 2D Spatial Layout Reconstruction via unpdf extractTextItems & CMap decoding
+ * Tier 3: Pure Node.js node:zlib Flate stream inflation & Tj/TJ/hex text extraction
  */
 async function extractTextFromPdf(
   buffer: Buffer,
   fileName: string = 'document.pdf'
 ): Promise<{ text: string; pages: ExtractedPage[]; pageCount: number }> {
-  // Tier 1: Try IBM Docling (via Docling Serve or ai-service)
-  const doclingRes = await extractWithDoclingService(buffer, fileName)
-  if (doclingRes && doclingRes.text.length > 30) {
-    return doclingRes
+  // Tier 1: Try FastAPI ai-service with pypdf
+  const pypdfRes = await extractWithAiServicePdf(buffer, fileName)
+  if (pypdfRes && pypdfRes.text.length > 20) {
+    return pypdfRes
   }
 
   // Tier 2: Enhanced 2D Spatial Layout Reconstruction via unpdf

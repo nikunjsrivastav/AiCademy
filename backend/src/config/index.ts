@@ -12,6 +12,5 @@ export const config = {
   mongoUri: process.env.MONGODB_URI || '',
   blobToken: process.env.BLOB_READ_WRITE_TOKEN || '',
   aiServiceUrl: process.env.AI_SERVICE_URL || '',
-  doclingApiUrl: process.env.DOCLING_API_URL || '',
 }
 

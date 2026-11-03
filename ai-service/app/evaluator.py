@@ -5,11 +5,13 @@ try:
     from app.vector_store import vector_store
     from app.critic import check_prompt_injection
     from app.groq_client import groq_service
+    from app.web_search import search_academic_web_context
 except ImportError:
     from .models import EvaluateAssignmentRequest, EvaluateAssignmentResponse, RubricScoreItem
     from .vector_store import vector_store
     from .critic import check_prompt_injection
     from .groq_client import groq_service
+    from .web_search import search_academic_web_context
 
 PROFESSOR_VANCE_PERSONA = """You are Professor Eleanor Vance, a distinguished, exacting, yet deeply pedagogical computer science professor and senior academic evaluator at AiCademy.
 
@@ -47,15 +49,22 @@ def evaluate_submission(req: EvaluateAssignmentRequest) -> EvaluateAssignmentRes
             needsHumanApproval=True
         )
 
-    # 2. RAG Retrieval from Course Syllabus
+    # 2. RAG Retrieval from Course Syllabus & DuckDuckGo Academic Web Lookup
     retrieved_chunks = vector_store.search(req.courseId, f"{req.assignmentTitle} {req.submissionText[:200]}", top_k=3)
     rag_context = "\n---\n".join([f"[{c['title']} p.{c['pageNumber']}]: {c['text']}" for c in retrieved_chunks])
     if not rag_context:
         rag_context = f"Course standards and syllabus concepts for {req.assignmentTitle}."
 
+    # DuckDuckGo live academic lookup for algorithmic invariants & benchmark specifications
+    web_query = f"{req.assignmentTitle} algorithm invariants computer science requirements"
+    web_results = search_academic_web_context(web_query, max_results=3)
+    web_context = "\n---\n".join([f"[{w['title']}]: {w['snippet']}" for w in web_results])
+    if not web_context:
+        web_context = "Adhere to standard computer science algorithmic complexity, invariants, and edge-case requirements."
+
     total_max = sum(c.maxMarks for c in req.rubricCriteria) or 100.0
 
-    # 3. LLM Evaluation via Groq
+    # 3. LLM Evaluation via Groq Intelligence
     if groq_service.is_available():
         criteria_prompt = "\n".join([
             f"- Criterion '{c.name}' (id: '{c.id}', maxMarks: {c.maxMarks}): {c.description}"
@@ -68,6 +77,9 @@ Student Name: {req.studentName}
 
 Retrieved Course Syllabus & Curriculum Standards:
 {rag_context}
+
+DuckDuckGo Verified Academic & Algorithmic Benchmarks:
+{web_context}
 
 Rubric Criteria:
 {criteria_prompt}

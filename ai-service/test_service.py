@@ -118,6 +118,29 @@ def test_orchestrator_agent():
     assert data["status"] == "completed"
     assert len(data["steps"]) >= 4
 
+def test_extract_pdf_pypdf():
+    # Minimal synthetic PDF buffer
+    pdf_bytes = (
+        b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'
+        b'2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n'
+        b'3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R '
+        b'/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>\nendobj\n'
+        b'4 0 obj\n<< /Length 44 >>\nstream\n'
+        b'BT /F1 12 Tf 100 700 Td (pypdf unit test extraction) Tj ET\nendstream\nendobj\n'
+        b'xref\n0 5\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000117 00000 n \n0000000271 00000 n \n'
+        b'trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n365\n%%EOF'
+    )
+    res = client.post(
+        "/extract-pdf",
+        files={"file": ("test.pdf", pdf_bytes, "application/pdf")}
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert "pypdf unit test extraction" in data["text"]
+    assert data["pageCount"] == 1
+    assert data["wordCount"] >= 3
+
 if __name__ == '__main__':
     test_health()
     test_ingest_material()
@@ -127,5 +150,6 @@ if __name__ == '__main__':
     test_score_doubt_quality()
     test_list_tools()
     test_orchestrator_agent()
-    print("All 8 ai-service tests passed successfully!")
+    test_extract_pdf_pypdf()
+    print("All 9 ai-service tests passed successfully!")
 
