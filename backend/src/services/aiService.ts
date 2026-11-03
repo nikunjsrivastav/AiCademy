@@ -416,13 +416,13 @@ ${submissionContent.slice(0, 10000)}
   const suggestionsList: string[] = []
   let reasoning = ''
 
-  if (wordCount < 15 || cleanContent.startsWith('[Submitted File:')) {
-    // Missing or unextractable content
-    finalRatio = 0.25
-    reasoning = `Submitted file contained insufficient or unreadable content (${wordCount} words). Unable to verify algorithmic solutions for ${assignmentTitle}.`
-    mistakesList.push('Document contains no executable solution or substantive derivation.')
+  if (wordCount === 0 || (!cleanContent && cleanContent.startsWith('[Submitted File:'))) {
+    // Completely empty content
+    finalRatio = 0.20
+    reasoning = `Submitted file contained no readable text or code. Unable to verify solutions for ${assignmentTitle}.`
+    mistakesList.push('Document contains no readable text or solution.')
     mistakesList.push('Missing required implementation according to assignment rubric.')
-    suggestionsList.push('Resubmit your work in standard PDF, text, or code format with full solution code.')
+    suggestionsList.push('Resubmit your work in standard PDF, text, or code format with full solution content.')
   } else if (isSeverelyFlawed || (detectedFlaws.length > 0 && topicMatchRatio < 0.5)) {
     // Flawed submission: award low marks
     finalRatio = Math.max(0.32, Math.min(0.55, 0.35 + topicMatchRatio * 0.15))
@@ -432,8 +432,8 @@ ${submissionContent.slice(0, 10000)}
     mistakesList.push('Boundary conditions for null or single-element inputs are unhandled.')
     suggestionsList.push('Fix syntax errors and ensure exception handling for empty/edge-case structures.')
     suggestionsList.push('Review course syllabus lectures on verification before resubmitting.')
-  } else if (topicMatchRatio < 0.35) {
-    // Off-topic or superficial submission
+  } else if (topicMatchRatio < 0.35 && wordCount > 30) {
+    // Off-topic submission
     finalRatio = 0.45
     reasoning = `The submitted document does not align adequately with the core topics of ${assignmentTitle}. Key requirements from the syllabus are missing.`
     mistakesList.push('Work does not address core problem requirements described in assignment prompt.')

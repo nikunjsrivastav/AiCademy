@@ -105,7 +105,7 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
     newMaterial.id,
     newMaterial.title,
     newMaterial.indexing.topics,
-    newMaterial.description
+    extractedDoc?.text || newMaterial.description
   )
 
   return res.status(201).json(newMaterial)
