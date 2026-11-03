@@ -226,6 +226,10 @@ export async function getMongoStatus() {
   }
 }
 
+export function getLastMongoError(): string | null {
+  return lastMongoError
+}
+
 export async function ensureConnected(): Promise<boolean> {
   if (Number(mongoose.connection.readyState) === 1) return true
   if (!config.mongoUri) return false
@@ -385,6 +389,8 @@ export class DatabaseStore {
           { upsert: true, new: true, setDefaultsOnInsert: true }
         )
         console.log(`[Database] User successfully persisted to Atlas: ${user.email} (${user.id})`)
+      } else if (config.mongoUri) {
+        throw new Error(`Cannot connect to MongoDB Atlas (${lastMongoError || 'Timeout'}). Check Atlas Network Access (whitelist 0.0.0.0/0).`)
       } else {
         console.warn(`[Database] WARNING: Not connected to Atlas! User cached in memory only: ${user.email}`)
       }
@@ -405,6 +411,8 @@ export class DatabaseStore {
           { upsert: true, new: true, setDefaultsOnInsert: true }
         )
         console.log(`[Database] Course successfully persisted to Atlas: ${course.code} (${course.id})`)
+      } else if (config.mongoUri) {
+        throw new Error(`Cannot connect to MongoDB Atlas (${lastMongoError || 'Timeout'}). Check Atlas Network Access (whitelist 0.0.0.0/0).`)
       }
     } catch (err: any) {
       console.error('[Database] Critical saveCourse error in Atlas:', err?.message)

@@ -2,7 +2,7 @@ import type { Response } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { config } from '../config/index.js'
-import { db } from '../models/db.js'
+import { db, ensureConnected, getLastMongoError } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { User, Role } from '../types/index.js'
 
@@ -24,6 +24,17 @@ export async function register(req: AuthenticatedRequest, res: Response) {
     const { name, email, password, role, department, studentNumber } = req.body
     if (!name || !email || !password || !role) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Name, email, password, and role are required' })
+    }
+
+    if (config.mongoUri) {
+      const ok = await ensureConnected()
+      if (!ok) {
+        const lastErr = getLastMongoError()
+        return res.status(503).json({
+          code: 'DATABASE_UNAVAILABLE',
+          message: `Cannot register account: MongoDB Atlas connection failed (${lastErr || 'Connection timed out'}). Please check your MongoDB Atlas Network Access (allow 0.0.0.0/0).`,
+        })
+      }
     }
 
     // Check email uniqueness from MongoDB Atlas
@@ -62,6 +73,17 @@ export async function login(req: AuthenticatedRequest, res: Response) {
     const { email, password } = req.body
     if (!email || !password) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Email and password are required' })
+    }
+
+    if (config.mongoUri) {
+      const ok = await ensureConnected()
+      if (!ok) {
+        const lastErr = getLastMongoError()
+        return res.status(503).json({
+          code: 'DATABASE_UNAVAILABLE',
+          message: `Cannot sign in: MongoDB Atlas is unreachable (${lastErr || 'Connection timed out'}). Please check your MongoDB Atlas Network Access (allow 0.0.0.0/0).`,
+        })
+      }
     }
 
     const user = await db.findUserByEmail(email.trim())
