@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { listApprovals, decideApproval } from '@/services/agents'
+import { listCourses } from '@/services/courses'
+import type { Course } from '@/types/domain'
 import type { ApprovalRequest } from '@/types/agents'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -29,9 +31,14 @@ import {
 } from 'lucide-react'
 
 export const ApprovalQueue: React.FC = () => {
+  const [courses, setCourses] = useState<Course[]>([])
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCourse, setSelectedCourse] = useState<string>('all')
+
+  useEffect(() => {
+    listCourses().then(setCourses).catch(() => {})
+  }, [])
   const [activeModal, setActiveModal] = useState<{
     type: 'approve' | 'reject' | 'edit'
     item: ApprovalRequest
@@ -154,9 +161,11 @@ export const ApprovalQueue: React.FC = () => {
           className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-1.5 text-ink focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="all">All Courses</option>
-          <option value="crs_cs301">CS301 Database Systems</option>
-          <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-          <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.code}: {c.name}
+            </option>
+          ))}
         </select>
 
         <span className="text-xs text-slate-400 ml-auto font-mono">

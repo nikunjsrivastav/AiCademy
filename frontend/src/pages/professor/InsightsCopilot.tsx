@@ -5,39 +5,74 @@
  */
 import React, { useState, useEffect } from 'react'
 import { getCourseInsights } from '@/services/agents'
+import { listCourses } from '@/services/courses'
 import { createAnnouncement } from '@/services/announcements'
+import type { Course } from '@/types/domain'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
 import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import {
   Lightbulb,
-  TrendingDown,
   MessageSquare,
   Send,
   CheckCircle2,
-  ArrowRight,
+  BookOpen,
 } from 'lucide-react'
 
 export const InsightsCopilot: React.FC = () => {
-  const [courseId, setCourseId] = useState('crs_cs301')
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseId, setCourseId] = useState<string>('')
   const [insights, setInsights] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [coursesLoading, setCoursesLoading] = useState(true)
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
   const { showToast } = useToast()
 
+  // 1. Fetch real courses
+  useEffect(() => {
+    let mounted = true
+    const loadCourses = async () => {
+      setCoursesLoading(true)
+      try {
+        const list = await listCourses()
+        if (mounted) {
+          setCourses(list)
+          if (list.length > 0) {
+            setCourseId(list[0].id)
+          }
+        }
+      } catch {
+        if (mounted) showToast('Failed to load courses.', 'error')
+      } finally {
+        if (mounted) setCoursesLoading(false)
+      }
+    }
+    loadCourses()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   const fetchInsights = async () => {
+    if (!courseId) {
+      setInsights(null)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setPublished(false)
     try {
       const data = await getCourseInsights(courseId)
       setInsights(data)
     } catch {
-      showToast('Failed to load teaching insights.', 'error')
+      setInsights(null)
     } finally {
       setLoading(false)
     }
@@ -48,33 +83,63 @@ export const InsightsCopilot: React.FC = () => {
   }, [courseId])
 
   const handlePublishSuggested = async () => {
-    if (!insights) return
+    if (!insights || !courseId) return
     setPublishing(true)
     try {
       await createAnnouncement({
         courseId,
-        title: 'Revision Lab: Boyce-Codd Normal Form & Lossless Decomposition',
+        title: `Curriculum Review: ${insights.title || 'Core Topic Clarification'}`,
         content:
-          'Based on recent questions, we will hold a 30-minute interactive review on BCNF decomposition and lossless joins this Thursday at 4 PM in Lab 3 or online. Bring your schema examples!',
+          insights.suggestedAnnouncement ||
+          'Based on recent student inquiries, we will hold an interactive review session this week. Bring your questions!',
       })
       setPublished(true)
-      showToast('The AI-suggested revision session announcement has been posted to the class.', 'success')
-    } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : String(err), 'error')
+      showToast('Announcement published directly to course stream (D7).', 'success')
+    } catch {
+      showToast('Failed to publish announcement.', 'error')
     } finally {
       setPublishing(false)
     }
   }
 
+  if (coursesLoading) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <Skeleton className="h-12 w-64 rounded-[8px]" />
+        <Skeleton className="h-40 w-full rounded-[8px]" />
+      </div>
+    )
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Teaching Insights Copilot</h1>
+          <p className="text-sm text-slate-500">
+            Autonomous curriculum analysis synthesizing student doubts, submission score patterns, and weak concepts.
+          </p>
+        </div>
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<BookOpen className="w-10 h-10 text-accent" />}
+            title="No Courses Found"
+            description="Create a course first in Course Studio to start gathering student insights and question analytics."
+          />
+        </Card>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold text-ink">Teaching Insights Copilot</h1>
             <ExtensionTag label="Insights Agent" />
-            <AIBadge label="Continuous Learning Data" />
+            <AIBadge label="Autonomous Curriculum Coach" />
           </div>
           <p className="text-sm text-slate-500">
             Autonomous curriculum analysis synthesizing student doubts, submission score patterns,
@@ -87,9 +152,11 @@ export const InsightsCopilot: React.FC = () => {
           onChange={(e) => setCourseId(e.target.value)}
           className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
-          <option value="crs_cs301">CS301 Database Systems</option>
-          <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-          <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.code}: {c.name}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -101,119 +168,105 @@ export const InsightsCopilot: React.FC = () => {
             <Skeleton className="h-64 rounded-[8px]" />
           </div>
         </div>
+      ) : !insights ? (
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<Lightbulb className="w-8 h-8 text-accent" />}
+            title="No Insights Available Yet"
+            description="As students submit assignments and ask doubts to the AI Tutor, curriculum trends and review recommendations will appear here."
+          />
+        </Card>
       ) : (
         <div className="space-y-6">
-          {/* Main Hero Recommendation */}
+          {/* Top Friction Alert */}
           <Card
             padding="standard"
-            className="border-2 border-accent/40 bg-gradient-to-r from-accent-soft/30 via-white to-accent-soft/10 relative overflow-hidden"
+            className="border-2 border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20"
           >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2 max-w-2xl">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-[6px] bg-accent text-white">
-                    <Lightbulb className="w-4 h-4" />
-                  </span>
-                  <span className="text-xs font-bold uppercase tracking-wider text-accent">
-                    Top Pedagogical Recommendation
-                  </span>
-                  <Badge variant="warning">Revision Lab Suggested</Badge>
-                </div>
-                <h2 className="text-xl font-bold text-ink">
-                  Schedule a 30-min Lab on Boyce-Codd Normal Form (BCNF)
-                </h2>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {insights?.teachingSuggestion}
-                </p>
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-[8px] bg-amber-500 text-white shrink-0 mt-0.5">
+                <Lightbulb className="w-5 h-5" />
               </div>
-
-              <div className="shrink-0">
-                {published ? (
-                  <Button variant="outline" size="md" disabled>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Announcement Published
-                  </Button>
-                ) : (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    disabled={publishing}
-                    onClick={handlePublishSuggested}
-                  >
-                    <Send className="w-4 h-4" />
-                    {publishing ? 'Publishing...' : 'Publish Suggested Announcement'}
-                  </Button>
-                )}
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-ink">
+                    Primary Friction Identified: {insights.weakTopic}
+                  </h3>
+                  <Badge variant="warning">{insights.dropPercentage}% Score Drop</Badge>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {insights.observation}
+                </p>
               </div>
             </div>
           </Card>
 
-          {/* Diagnostic Metrics Grid */}
+          {/* 2-Column Split: Questions Clustered + Suggested Action */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Frequent Doubts Card */}
+            {/* Clustered Student Inquiries */}
             <Card padding="standard" className="border border-mist space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-accent" />
-                  <h3 className="text-base font-bold text-ink">Frequent Student Inquiries</h3>
-                </div>
-                <span className="text-xs text-slate-400">Past 7 Days</span>
-              </div>
-
-              <p className="text-xs text-slate-500">
-                Topics generating the highest volume of AI Tutor consultations:
-              </p>
-
-              <div className="space-y-3 pt-1">
-                {(insights?.frequentDoubts || []).map((item: any, idx: number) => (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex justify-between text-xs font-semibold text-ink">
-                      <span>{item.topic}</span>
-                      <span className="text-accent">{item.percentage}% ({item.count} questions)</span>
-                    </div>
-                    <div className="w-full bg-chalk rounded-full h-2 overflow-hidden border border-mist">
-                      <div
-                        className="bg-accent h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    </div>
+              <h4 className="text-sm font-bold text-ink flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-blue-500" />
+                Frequent Student Doubts ({insights.frequentDoubts?.length || 0})
+              </h4>
+              <div className="space-y-2.5">
+                {(insights.frequentDoubts || []).map((doubt: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-[6px] bg-chalk border border-mist space-y-1 text-xs"
+                  >
+                    <p className="font-semibold text-ink">"{doubt.question}"</p>
+                    <p className="text-slate-400 font-mono text-[11px]">
+                      Asked by {doubt.count} students &bull; Avg quality: {doubt.qualityScore}/100
+                    </p>
                   </div>
                 ))}
               </div>
             </Card>
 
-            {/* Performance Drop Card */}
-            <Card padding="standard" className="border border-mist space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingDown className="w-4 h-4 text-rose-500" />
-                  <h3 className="text-base font-bold text-ink">Score Anomaly Detection</h3>
+            {/* 1-Click Announcement Draft */}
+            <Card padding="standard" className="border border-mist space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-ink flex items-center gap-2">
+                    <Send className="w-4 h-4 text-accent" />
+                    Agent-Drafted Revision Announcement
+                  </h4>
+                  <Badge variant="brand">Ready to Post</Badge>
                 </div>
-                <span className="text-xs text-rose-600 font-semibold">-18% Baseline Drop</span>
+
+                <div className="p-3.5 rounded-[8px] bg-accent-soft/30 border border-accent/20 text-xs text-ink leading-relaxed space-y-2">
+                  <p className="font-bold">
+                    Title: Revision Lab: {insights.weakTopic}
+                  </p>
+                  <p className="text-slate-600">
+                    {insights.suggestedAnnouncement}
+                  </p>
+                </div>
               </div>
 
-              <p className="text-xs text-slate-500">
-                Assignment rubric criteria showing notable performance friction:
-              </p>
-
-              <div className="p-4 rounded-[8px] bg-rose-50/50 border border-rose-200 space-y-2">
-                <span className="text-xs font-bold text-rose-800 uppercase tracking-wider block">
-                  Critical Criterion Alert
+              <div className="pt-4 border-t border-mist flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-mono">
+                  Publishes to course feed
                 </span>
-                <p className="text-sm font-semibold text-rose-900">
-                  {insights?.performanceDropCriteria}
-                </p>
-                <p className="text-xs text-rose-700 leading-relaxed">
-                  Students struggled with multi-valued dependency preservation and minimal cover
-                  proofs on Assignment 1.
-                </p>
-              </div>
-
-              <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                <span>Recommended Action:</span>
-                <span className="font-semibold text-accent flex items-center gap-1">
-                  Upload supplementary notes <ArrowRight className="w-3 h-3" />
-                </span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={publishing || published}
+                  onClick={handlePublishSuggested}
+                >
+                  {published ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                      Published to Course!
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      {publishing ? 'Publishing...' : '1-Click Publish to Class'}
+                    </>
+                  )}
+                </Button>
               </div>
             </Card>
           </div>

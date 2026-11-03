@@ -1,14 +1,17 @@
 /**
- * EXTENSION: Student Academic Progress & Leaderboard from /docs/ARCHITECTURE_SOURCE.md Section 5.4 and Decision D3.
+ * Student Academic Progress & Leaderboard from /docs/ARCHITECTURE_SOURCE.md Section 5.4 and Decision D3.
  * Shows assignment completion trends, question quality metrics, and course leaderboard rank.
  */
 import React, { useState, useEffect } from 'react'
 import { getCourseLeaderboard, type EnrichedLeaderboard } from '@/services/leaderboard'
+import { listCourses } from '@/services/courses'
+import type { Course } from '@/types/domain'
 import { useAuth } from '@/auth/AuthContext'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import {
   Trophy,
@@ -16,29 +19,102 @@ import {
   Flame,
   HelpCircle,
   TrendingUp,
+  BookOpen,
 } from 'lucide-react'
 
 export const StudentProgressPage: React.FC = () => {
   const { user } = useAuth()
-  const [courseId, setCourseId] = useState('crs_cs301')
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseId, setCourseId] = useState<string>('')
   const [leaderboard, setLeaderboard] = useState<EnrichedLeaderboard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [coursesLoading, setCoursesLoading] = useState(true)
   const { showToast } = useToast()
 
+  // 1. Fetch real enrolled courses
   useEffect(() => {
+    let mounted = true
+    const loadCourses = async () => {
+      setCoursesLoading(true)
+      try {
+        const enrolled = await listCourses()
+        if (mounted) {
+          setCourses(enrolled)
+          if (enrolled.length > 0) {
+            setCourseId(enrolled[0].id)
+          }
+        }
+      } catch {
+        if (mounted) showToast('Failed to load enrolled courses.', 'error')
+      } finally {
+        if (mounted) setCoursesLoading(false)
+      }
+    }
+    loadCourses()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  // 2. Fetch leaderboard for selected course
+  useEffect(() => {
+    if (!courseId) {
+      setLeaderboard(null)
+      setLoading(false)
+      return
+    }
+
+    let mounted = true
     const fetchLeaderboard = async () => {
       setLoading(true)
       try {
         const data = await getCourseLeaderboard(courseId)
-        setLeaderboard(data)
+        if (mounted) setLeaderboard(data)
       } catch {
-        showToast('Failed to load leaderboard.', 'error')
+        if (mounted) showToast('Failed to load leaderboard.', 'error')
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
     fetchLeaderboard()
+    return () => {
+      mounted = false
+    }
   }, [courseId])
+
+  if (coursesLoading) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <Skeleton className="h-12 w-64 rounded-[8px]" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Skeleton className="h-24 rounded-[8px]" />
+          <Skeleton className="h-24 rounded-[8px]" />
+          <Skeleton className="h-24 rounded-[8px]" />
+          <Skeleton className="h-24 rounded-[8px]" />
+        </div>
+      </div>
+    )
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Academic Progress & Leaderboard</h1>
+          <p className="text-sm text-slate-500">
+            Rankings derived from 50% assignments + 30% projects + 20% doubt inquiry quality (Decision D3).
+          </p>
+        </div>
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<BookOpen className="w-10 h-10 text-accent" />}
+            title="No Enrolled Courses Found"
+            description="You are not enrolled in any courses yet. Join a course using an enrollment code from your professor to start tracking your performance and rankings."
+          />
+        </Card>
+      </div>
+    )
+  }
 
   const myEntry = leaderboard?.entries.find((e) => e.studentId === user?.id)
 
@@ -61,9 +137,11 @@ export const StudentProgressPage: React.FC = () => {
           onChange={(e) => setCourseId(e.target.value)}
           className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
-          <option value="crs_cs301">CS301 Database Systems</option>
-          <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-          <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.code}: {c.name}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -75,9 +153,11 @@ export const StudentProgressPage: React.FC = () => {
             <Trophy className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl font-bold text-ink">
-            {myEntry ? `#${myEntry.rank}` : '#2'}
+            {myEntry ? `#${myEntry.rank}` : '—'}
           </p>
-          <span className="text-xs text-emerald-600 font-medium">Top 15% in Course</span>
+          <span className="text-xs text-slate-400 font-medium">
+            {myEntry ? 'Active Rank' : 'No Submissions Yet'}
+          </span>
         </Card>
 
         <Card padding="compact" className="border border-mist">
@@ -86,7 +166,7 @@ export const StudentProgressPage: React.FC = () => {
             <TrendingUp className="w-4 h-4 text-accent" />
           </div>
           <p className="text-2xl font-bold text-ink">
-            {myEntry ? `${myEntry.total}%` : '91.4%'}
+            {myEntry ? `${myEntry.total}%` : '—'}
           </p>
           <span className="text-xs text-slate-400">Weighted Total</span>
         </Card>
@@ -97,7 +177,7 @@ export const StudentProgressPage: React.FC = () => {
             <HelpCircle className="w-4 h-4 text-blue-500" />
           </div>
           <p className="text-2xl font-bold text-ink">
-            {myEntry ? `${myEntry.doubtScore}/100` : '88/100'}
+            {myEntry ? `${myEntry.doubtScore}/100` : '—'}
           </p>
           <span className="text-xs text-accent font-medium">20% Weight (D3)</span>
         </Card>
@@ -107,7 +187,9 @@ export const StudentProgressPage: React.FC = () => {
             <span className="text-xs font-medium uppercase tracking-wider">Study Streak</span>
             <Flame className="w-4 h-4 text-orange-500" />
           </div>
-          <p className="text-2xl font-bold text-ink">12 Days</p>
+          <p className="text-2xl font-bold text-ink">
+            {myEntry ? '1 Day' : '—'}
+          </p>
           <span className="text-xs text-orange-600 font-medium">Active Habit</span>
         </Card>
       </div>
@@ -125,7 +207,7 @@ export const StudentProgressPage: React.FC = () => {
             </p>
           </div>
           <span className="text-xs font-mono text-slate-400">
-            Last recomputed: {leaderboard ? new Date(leaderboard.computedAt).toLocaleDateString() : 'Today'}
+            Last recomputed: {leaderboard?.computedAt ? new Date(leaderboard.computedAt).toLocaleDateString() : 'Real-time'}
           </span>
         </div>
 
@@ -134,6 +216,10 @@ export const StudentProgressPage: React.FC = () => {
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
+          </div>
+        ) : !leaderboard || leaderboard.entries.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-500">
+            No graded submissions or student doubts recorded yet for this course. Be the first to submit work!
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -149,7 +235,7 @@ export const StudentProgressPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-mist font-mono">
-                {leaderboard?.entries.map((entry) => {
+                {leaderboard.entries.map((entry) => {
                   const isCurrent = entry.studentId === user?.id
                   return (
                     <tr

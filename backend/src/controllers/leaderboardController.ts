@@ -9,8 +9,8 @@ export function computeLeaderboard(courseId: string): Leaderboard {
 
   const weights = course?.leaderboardWeights || { assignments: 0.5, projects: 0.3, doubts: 0.2 }
 
-  const entries: LeaderboardEntry[] = students.map((student, idx) => {
-    // Collect student's submissions in this course
+  const entries: (LeaderboardEntry & { total: number })[] = students.map((student) => {
+    // Collect student's real submissions in this course
     const subs = Array.from(db.submissions.values()).filter(
       (s) => s.courseId === courseId && s.studentId === student.id && s.marks !== null
     )
@@ -18,23 +18,24 @@ export function computeLeaderboard(courseId: string): Leaderboard {
       (d) => d.courseId === courseId && d.studentId === student.id
     )
 
-    const avgAsg = subs.length > 0 ? subs.reduce((acc, s) => acc + (s.marks || 0), 0) / subs.length : (85 - idx * 4)
-    const avgProj = 88 - idx * 3
+    const avgAsg = subs.length > 0 ? Math.round(subs.reduce((acc, s) => acc + (s.marks || 0), 0) / subs.length) : 0
+    const avgProj = 0
     const avgDoubt = doubtList.length > 0
-      ? doubtList.reduce((acc, d) => acc + d.quality.score, 0) / doubtList.length
-      : (90 - idx * 5)
+      ? Math.round(doubtList.reduce((acc, d) => acc + d.quality.score, 0) / doubtList.length)
+      : 0
 
     const total = Math.round(avgAsg * weights.assignments + avgProj * weights.projects + avgDoubt * weights.doubts)
 
     return {
       studentId: student.id,
       studentName: student.name,
-      avatarHue: student.profile.avatarHue || 200,
+      avatarHue: student.profile?.avatarHue || 200,
       rank: 0,
       totalScore: total,
-      assignmentScore: Math.round(avgAsg),
-      projectScore: Math.round(avgProj),
-      doubtScore: Math.round(avgDoubt),
+      total,
+      assignmentScore: avgAsg,
+      projectScore: avgProj,
+      doubtScore: avgDoubt,
     }
   })
 

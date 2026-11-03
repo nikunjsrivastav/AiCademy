@@ -5,6 +5,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { listAgentRuns, startAgentRun } from '@/services/agents'
+import { listCourses } from '@/services/courses'
+import type { Course } from '@/types/domain'
 import type { AgentName, AgentRun, SimulationMode } from '@/types/agents'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -29,6 +31,7 @@ import {
 
 export const AgentRunsList: React.FC = () => {
   const [runs, setRuns] = useState<AgentRun[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [agentFilter, setAgentFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -38,7 +41,7 @@ export const AgentRunsList: React.FC = () => {
 
   // New Run Form State
   const [selectedAgent, setSelectedAgent] = useState<AgentName>('ingestion')
-  const [selectedCourse, setSelectedCourse] = useState('crs_cs301')
+  const [selectedCourse, setSelectedCourse] = useState('')
   const [simulationMode, setSimulationMode] = useState<SimulationMode>('normal')
 
   const fetchRuns = async () => {
@@ -55,6 +58,10 @@ export const AgentRunsList: React.FC = () => {
 
   useEffect(() => {
     fetchRuns()
+    listCourses().then((list) => {
+      setCourses(list)
+      if (list.length > 0) setSelectedCourse(list[0].id)
+    }).catch(() => {})
   }, [])
 
   const handleTriggerRun = async () => {
@@ -267,9 +274,15 @@ export const AgentRunsList: React.FC = () => {
               onChange={(e) => setSelectedCourse(e.target.value)}
               className="w-full text-sm bg-chalk border border-mist rounded-[8px] p-2.5 text-ink focus:outline-none focus:ring-1 focus:ring-accent"
             >
-              <option value="crs_cs301">CS301 Database Systems</option>
-              <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-              <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+              {courses.length === 0 ? (
+                <option value="">No courses created yet</option>
+              ) : (
+                courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code}: {c.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

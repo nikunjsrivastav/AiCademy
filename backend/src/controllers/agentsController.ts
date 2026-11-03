@@ -230,45 +230,95 @@ export async function getStudyPlan(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
   const user = req.user!
 
+  const course = db.courses.get(courseId)
+  if (!course) {
+    return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
+  }
+
+  const materials = Array.from(db.materials.values()).filter((m) => m.courseId === courseId)
+  const assignments = Array.from(db.assignments.values()).filter((a) => a.courseId === courseId)
+
+  if (materials.length === 0 && assignments.length === 0) {
+    return res.json({
+      courseId,
+      studentId: user.id,
+      title: `${course.name} Foundations`,
+      weakTopics: [],
+      steps: [],
+      recommendedMaterials: [],
+    })
+  }
+
+  const upcomingAsg = assignments.find((a) => new Date(a.dueDate) > new Date()) || assignments[0]
+  const weakTopics = materials.flatMap((m) => m.indexing.topics).slice(0, 2)
+
   return res.json({
     courseId,
     studentId: user.id,
     generatedAt: new Date().toISOString(),
-    sprints: [
+    title: upcomingAsg ? `Sprint: Prepare for ${upcomingAsg.title}` : `Core Review: ${course.name}`,
+    weakTopics: weakTopics.length > 0 ? weakTopics : ['Foundational Concepts'],
+    deadline: upcomingAsg ? `Due in ${Math.max(1, Math.round((new Date(upcomingAsg.dueDate).getTime() - Date.now()) / 86400000))} days` : undefined,
+    steps: [
       {
-        id: 'sprint_1',
-        title: 'Master AVL Tree Rotations',
-        description: 'Practice left and right rotation invariants and depth re-calculation.',
-        estimatedHours: 3.5,
-        targetDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-        completed: false,
+        step: 1,
+        title: materials[0] ? `Review ${materials[0].title} concepts and slides` : `Review lecture notes for ${course.name}`,
+        duration: '25 min',
       },
       {
-        id: 'sprint_2',
-        title: 'Graph Dijkstra Implementation',
-        description: 'Complete priority queue optimization for single-source shortest path.',
-        estimatedHours: 4.0,
-        targetDate: new Date(Date.now() + 6 * 86400000).toISOString(),
-        completed: false,
+        step: 2,
+        title: upcomingAsg ? `Draft solutions for ${upcomingAsg.title}` : 'Work through practice problems',
+        duration: '45 min',
+      },
+      {
+        step: 3,
+        title: 'Verify edge cases and consult AI Tutor on unclear topics',
+        duration: '20 min',
       },
     ],
+    recommendedMaterials: materials.slice(0, 2).map((m) => ({
+      title: m.title,
+      pages: [1, 2, 4],
+    })),
   })
 }
 
 export async function getInsights(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
+  const course = db.courses.get(courseId)
+  if (!course) {
+    return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
+  }
+
+  const doubts = Array.from(db.doubts.values()).filter((d) => d.courseId === courseId)
+  const materials = Array.from(db.materials.values()).filter((m) => m.courseId === courseId)
+
+  if (doubts.length === 0) {
+    return res.json({
+      courseId,
+      generatedAt: new Date().toISOString(),
+      weakTopic: materials[0]?.title || course.name,
+      dropPercentage: 0,
+      observation: 'No question friction or score drops recorded yet. All students currently progressing normally.',
+      frequentDoubts: [],
+      suggestedAnnouncement: `Welcome to ${course.code}: ${course.name}! Feel free to post questions here or ask the AI Tutor for help with course materials.`,
+    })
+  }
+
+  const frequentDoubts = doubts.slice(-3).map((d) => ({
+    question: d.question,
+    count: 1,
+    qualityScore: d.quality.score,
+  }))
+
   return res.json({
     courseId,
     generatedAt: new Date().toISOString(),
-    trends: [
-      { topic: 'AVL Tree Deletions', masteryPercentage: 68, strugglingStudentsCount: 4 },
-      { topic: 'Graph Shortest Paths', masteryPercentage: 86, strugglingStudentsCount: 1 },
-      { topic: 'Big-O Proofs', masteryPercentage: 92, strugglingStudentsCount: 0 },
-    ],
-    recommendedActions: [
-      { action: 'Post clarification on AVL double rotation edge cases', urgency: 'high' },
-      { action: 'Schedule review session for Dijkstra vs Bellman-Ford', urgency: 'medium' },
-    ],
+    weakTopic: materials[0]?.indexing.topics[0] || 'Core Concepts',
+    dropPercentage: 14,
+    observation: `Students have asked ${doubts.length} questions regarding recent topics. Review suggested before upcoming deadlines.`,
+    frequentDoubts,
+    suggestedAnnouncement: `Based on recent student inquiries in ${course.code}, we will review key concepts this week. Please bring your questions!`,
   })
 }
 

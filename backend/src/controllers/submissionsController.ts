@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Submission } from '../types/index.js'
 import { evaluateSubmissionWithAI } from '../services/aiService.js'
 import { uploadFileToStorage } from '../services/storageService.js'
+import { vectorEngine } from '../services/vectorService.js'
 
 export async function uploadSubmission(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
@@ -46,12 +47,41 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
   )
   const version = existing.length + 1
 
-  // Evaluate via Groq (with heuristic fallback)
+  // 1. Topic Extraction & Syllabus RAG Retrieval (Option A In-Process Vector Engine)
+  const topicQuery = `${assignment.title} ${assignment.description || ''} ${assignment.rubricCriteria.map((c) => c.name).join(' ')}`
+  const topicMatches = vectorEngine.search(assignment.courseId, topicQuery, 4)
+  const retrievedTopicChunks = topicMatches.map((m) => ({
+    materialTitle: m.chunk.materialTitle,
+    pageNumber: m.chunk.pageNumber,
+    text: m.chunk.text,
+    similarity: m.similarity,
+  }))
+
+  // 2. Submission content extraction
+  let submissionContent = body.submissionContent || body.content || ''
+  if (!submissionContent && file && file.buffer) {
+    const isText =
+      /text|plain|json|javascript|typescript|python|markdown|html/i.test(file.mimetype) ||
+      /\.(txt|md|py|js|ts|jsx|tsx|json|c|cpp|java|sql)$/i.test(originalName)
+    if (isText) {
+      submissionContent = file.buffer.toString('utf-8').slice(0, 8000)
+    }
+  }
+  if (!submissionContent) {
+    submissionContent = `[Submitted File: ${originalName} (${Math.round(fileSize / 1024)} KB, format: ${ext}) for assignment "${assignment.title}"]`
+  }
+
+  // 3. Evaluate via Groq Academic Professor Persona with Syllabus RAG Grounding
   const aiEval = await evaluateSubmissionWithAI({
+    courseCode: course.code,
+    courseName: course.name,
     assignmentTitle: assignment.title,
+    assignmentDescription: assignment.description,
     rubricCriteria: assignment.rubricCriteria,
     maxMarks: assignment.maxMarks || 100,
     submissionFileName: originalName,
+    submissionContent,
+    retrievedTopicChunks,
   })
 
   const submission: Submission = {

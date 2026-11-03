@@ -161,3 +161,4 @@ export const vectorEngine = {
     return (chunkStore.get(courseId) || []).length
   },
 }
+

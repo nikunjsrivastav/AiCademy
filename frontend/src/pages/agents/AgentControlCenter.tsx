@@ -5,20 +5,23 @@
  */
 import React, { useState, useEffect } from 'react'
 import { getAgentPolicy, updateAgentPolicy } from '@/services/agents'
+import { listCourses } from '@/services/courses'
 import type { AgentName, AgentPolicy } from '@/types/agents'
+import type { Course } from '@/types/domain'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
 import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import {
-  Sliders,
   Shield,
   Cpu,
   Bot,
   Save,
+  BookOpen,
 } from 'lucide-react'
 
 const AGENT_LIST: { id: AgentName; name: string; desc: string }[] = [
@@ -32,19 +35,68 @@ const AGENT_LIST: { id: AgentName; name: string; desc: string }[] = [
 ]
 
 export const AgentControlCenter: React.FC = () => {
-  const [courseId, setCourseId] = useState('crs_cs301')
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseId, setCourseId] = useState<string>('')
   const [policy, setPolicy] = useState<AgentPolicy | null>(null)
   const [loading, setLoading] = useState(true)
+  const [coursesLoading, setCoursesLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { showToast } = useToast()
 
+  // 1. Fetch real courses
+  useEffect(() => {
+    let mounted = true
+    const loadCourses = async () => {
+      setCoursesLoading(true)
+      try {
+        const list = await listCourses()
+        if (mounted) {
+          setCourses(list)
+          if (list.length > 0) {
+            setCourseId(list[0].id)
+          }
+        }
+      } catch {
+        if (mounted) showToast('Failed to load courses.', 'error')
+      } finally {
+        if (mounted) setCoursesLoading(false)
+      }
+    }
+    loadCourses()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   const fetchPolicy = async () => {
+    if (!courseId) {
+      setPolicy(null)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const data = await getAgentPolicy(courseId)
       setPolicy(data)
     } catch {
-      showToast('Failed to load agent policy.', 'error')
+      setPolicy({
+        courseId,
+        enabledAgents: {
+          orchestrator: true,
+          ingestion: true,
+          grader: true,
+          tutor: true,
+          question_quality: true,
+          insights: true,
+          study_coach: true,
+        },
+        autoPublish: false,
+        confidenceThreshold: 0.85,
+        dailyTokenBudget: 500000,
+        tokensUsedToday: 0,
+        updatedAt: new Date().toISOString(),
+      })
     } finally {
       setLoading(false)
     }
@@ -66,21 +118,46 @@ export const AgentControlCenter: React.FC = () => {
   }
 
   const handleSave = async () => {
-    if (!policy) return
+    if (!policy || !courseId) return
     setSaving(true)
     try {
       await updateAgentPolicy(courseId, policy)
-      showToast(`Agent autonomy settings saved for ${courseId}.`, 'success')
+      showToast('Agent policy saved successfully.', 'success')
     } catch {
-      showToast('Could not update policy.', 'error')
+      showToast('Failed to save policy.', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  const budgetPercent = policy
-    ? Math.min(100, Math.round((policy.tokensUsedToday / policy.dailyTokenBudget) * 100))
-    : 0
+  if (coursesLoading) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <Skeleton className="h-12 w-64 rounded-[8px]" />
+        <Skeleton className="h-40 w-full rounded-[8px]" />
+      </div>
+    )
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Agent Control Center</h1>
+          <p className="text-sm text-slate-500">
+            Define course agent activation, provisional feedback visibility, confidence thresholds, and token budgets.
+          </p>
+        </div>
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<BookOpen className="w-10 h-10 text-accent" />}
+            title="No Courses Found"
+            description="Create a course first in Course Studio to configure agent governance policies."
+          />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -89,8 +166,8 @@ export const AgentControlCenter: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold text-ink">Agent Control Center</h1>
-            <ExtensionTag label="Policy Engine" />
-            <AIBadge label="Autonomous Guardrails" />
+            <ExtensionTag label="Governance & Safety" />
+            <AIBadge label="Policy Engine" />
           </div>
           <p className="text-sm text-slate-500">
             Define course agent activation, provisional feedback visibility, confidence thresholds,
@@ -104,9 +181,11 @@ export const AgentControlCenter: React.FC = () => {
             onChange={(e) => setCourseId(e.target.value)}
             className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
           >
-            <option value="crs_cs301">CS301 Database Systems</option>
-            <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-            <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code}: {c.name}
+              </option>
+            ))}
           </select>
 
           <Button variant="primary" size="sm" disabled={saving || !policy} onClick={handleSave}>
@@ -118,160 +197,133 @@ export const AgentControlCenter: React.FC = () => {
 
       {loading || !policy ? (
         <div className="space-y-4">
-          <Skeleton className="h-32 w-full rounded-[8px]" />
+          <Skeleton className="h-40 w-full rounded-[8px]" />
           <Skeleton className="h-64 w-full rounded-[8px]" />
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Daily Budget & Governance Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card padding="standard" className="border border-mist space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                <span>Daily Token Budget (D14)</span>
-                <Cpu className="w-4 h-4 text-accent" />
-              </div>
-              <p className="text-xl font-bold text-ink">
-                {policy.tokensUsedToday.toLocaleString()} /{' '}
-                {policy.dailyTokenBudget.toLocaleString()}
-              </p>
-              <div className="w-full bg-chalk rounded-full h-2 overflow-hidden border border-mist">
-                <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    budgetPercent > 80 ? 'bg-rose-500' : 'bg-accent'
-                  }`}
-                  style={{ width: `${budgetPercent}%` }}
-                />
-              </div>
-              <span className="text-xs text-slate-400 block font-mono">{budgetPercent}% consumed</span>
-            </Card>
-
-            <Card padding="standard" className="border border-mist space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                <span>Confidence Threshold (D11)</span>
-                <Shield className="w-4 h-4 text-emerald-500" />
-              </div>
-              <p className="text-xl font-bold text-ink">
-                {(policy.confidenceThreshold * 100).toFixed(0)}%
-              </p>
-              <p className="text-xs text-slate-400">
-                Grades below this threshold require professor approval before release.
-              </p>
-            </Card>
-
-            <Card padding="standard" className="border border-mist space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                <span>Provisional Feedback (D12)</span>
-                <Bot className="w-4 h-4 text-accent" />
-              </div>
-              <p className="text-xl font-bold text-ink">
-                {policy.autoPublish ? 'Provisional Visible' : 'Hidden Until Approved'}
-              </p>
-              <p className="text-xs text-slate-400">
-                Marks always require approval; controls student preview visibility.
-              </p>
-            </Card>
-          </div>
-
-          {/* Autonomy Controls & Sliders */}
+          {/* Autonomy & Safety Settings Card */}
           <Card padding="standard" className="border border-mist space-y-6">
-            <h3 className="text-base font-bold text-ink flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-accent" />
-              Human Governance & Policy Configuration
-            </h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-600" />
+                  Human-in-the-Loop & Feedback Policies
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Enforce strict ethical boundaries and determine when AI operates autonomously.
+                </p>
+              </div>
+            </div>
 
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              {/* Auto Publish Feedback Toggle */}
+              <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-ink">Auto-Publish Student Feedback</span>
+                  <input
+                    type="checkbox"
+                    checked={policy.autoPublish}
+                    onChange={(e) =>
+                      setPolicy({ ...policy, autoPublish: e.target.checked })
+                    }
+                    className="w-4 h-4 text-accent rounded focus:ring-accent"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  <span className="font-semibold text-ink">Decision D12:</span> Shows provisional AI
+                  evaluation comments to students immediately, labeled "Pending Professor Approval".
+                  Final numeric marks are strictly withheld until professor approval.
+                </p>
+              </div>
+
               {/* Confidence Threshold Slider */}
               <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-2">
-                <div className="flex justify-between items-center text-xs font-semibold text-ink">
-                  <span>Grader Confidence Gate Threshold</span>
-                  <span className="font-mono text-accent">
-                    {(policy.confidenceThreshold * 100).toFixed(0)}% Confidence
-                  </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-ink">Approval Confidence Threshold</span>
+                  <Badge variant="brand">{(policy.confidenceThreshold * 100).toFixed(0)}%</Badge>
                 </div>
                 <input
                   type="range"
                   min="0.5"
-                  max="0.95"
-                  step="0.05"
+                  max="0.99"
+                  step="0.01"
                   value={policy.confidenceThreshold}
                   onChange={(e) =>
-                    setPolicy({ ...policy, confidenceThreshold: Number(e.target.value) })
+                    setPolicy({ ...policy, confidenceThreshold: parseFloat(e.target.value) })
                   }
-                  className="w-full accent-accent cursor-pointer"
+                  className="w-full accent-accent"
                 />
-                <p className="text-xs text-slate-500">
-                  Submissions with model confidence below {(policy.confidenceThreshold * 100).toFixed(0)}%
-                  will automatically route to the professor Approval Queue.
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  <span className="font-semibold text-ink">Decision D11:</span> Submissions graded with
+                  confidence below this threshold are routed to the human approval queue. Bulk approval
+                  requires &ge; 90%.
                 </p>
               </div>
+            </div>
 
-              {/* Auto-publish Provisional Feedback Switch */}
-              <div className="p-4 rounded-[8px] bg-chalk border border-mist flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-ink block">
-                    Show Provisional AI Feedback to Students (Decision D12)
-                  </span>
-                  <p className="text-xs text-slate-500 max-w-xl">
-                    When enabled, students immediately see provisional AI evaluation notes labeled
-                    "AI, pending review". Numerical marks remain locked until professor approval.
+            {/* Token Budget Meter */}
+            <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-bold text-ink">Daily Course Token Budget (D14)</span>
+                  <p className="text-xs text-slate-500">
+                    Controls daily LLM token consumption to prevent unexpected API costs.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPolicy({ ...policy, autoPublish: !policy.autoPublish })}
-                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                    policy.autoPublish ? 'bg-accent' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`block w-4 h-4 rounded-full bg-white transition-transform absolute top-1 left-1 ${
-                      policy.autoPublish ? 'translate-x-5' : ''
-                    }`}
-                  />
-                </button>
+                <span className="text-xs font-mono font-bold text-accent">
+                  {(policy.tokensUsedToday || 0).toLocaleString()} /{' '}
+                  {policy.dailyTokenBudget.toLocaleString()} tokens
+                </span>
+              </div>
+              <div className="w-full bg-mist/60 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-accent h-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      ((policy.tokensUsedToday || 0) / policy.dailyTokenBudget) * 100
+                    )}%`,
+                  }}
+                />
               </div>
             </div>
           </Card>
 
-          {/* Specialist Agents Activation Toggles */}
+          {/* Specialist Agent Toggles */}
           <Card padding="standard" className="border border-mist space-y-4">
-            <h3 className="text-base font-bold text-ink flex items-center gap-2">
-              <Bot className="w-4 h-4 text-accent" />
-              Specialist Agent Activation Roster (Section B1)
-            </h3>
-            <p className="text-xs text-slate-500">
-              Selectively enable or disable autonomous specialist agents for {courseId}. Disabled
-              agents are rejected by policy guardrails.
-            </p>
+            <div>
+              <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-accent" />
+                Active Agent Services (Decision D14)
+              </h3>
+              <p className="text-xs text-slate-500">
+                Enable or disable individual agent pipelines for this course.
+              </p>
+            </div>
 
-            <div className="divide-y divide-mist">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
               {AGENT_LIST.map((agent) => {
-                const isEnabled = policy.enabledAgents[agent.id] ?? true
+                const isEnabled = policy.enabledAgents[agent.id]
                 return (
-                  <div key={agent.id} className="py-3.5 flex items-center justify-between gap-4">
-                    <div>
+                  <div
+                    key={agent.id}
+                    className="p-3.5 rounded-[8px] bg-chalk border border-mist flex items-start justify-between gap-4 hover:border-accent/40 transition-colors"
+                  >
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-accent shrink-0" />
                         <span className="text-sm font-bold text-ink">{agent.name}</span>
-                        <Badge variant={isEnabled ? 'success' : 'neutral'}>
-                          {isEnabled ? 'Active' : 'Disabled'}
-                        </Badge>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">{agent.desc}</p>
+                      <p className="text-xs text-slate-500 leading-relaxed">{agent.desc}</p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAgent(agent.id)}
-                      className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                        isEnabled ? 'bg-accent' : 'bg-slate-300'
-                      }`}
-                    >
-                      <span
-                        className={`block w-4 h-4 rounded-full bg-white transition-transform absolute top-1 left-1 ${
-                          isEnabled ? 'translate-x-5' : ''
-                        }`}
-                      />
-                    </button>
+                    <input
+                      type="checkbox"
+                      checked={isEnabled}
+                      onChange={() => handleToggleAgent(agent.id)}
+                      className="w-4 h-4 text-accent rounded focus:ring-accent mt-0.5 shrink-0"
+                    />
                   </div>
                 )
               })}

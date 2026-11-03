@@ -1,16 +1,19 @@
 /**
- * EXTENSION: Proactive Study Coach page from /docs/AGENTIC_DESIGN.md B1.7 and Decision D16.
+ * Proactive Study Coach page from /docs/AGENTIC_DESIGN.md B1.7 and Decision D16.
  * Analyzes deadlines and weak topics, synthesizes a 3-step mastery sprint,
  * and provides "Add to Calendar" with native .ics calendar export.
  */
 import React, { useState, useEffect } from 'react'
 import { getStudyPlan } from '@/services/agents'
+import { listCourses } from '@/services/courses'
+import type { Course } from '@/types/domain'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
 import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import {
   Compass,
@@ -21,36 +24,74 @@ import {
 } from 'lucide-react'
 
 export const StudyCoachPage: React.FC = () => {
-  const [courseId, setCourseId] = useState('crs_cs301')
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseId, setCourseId] = useState<string>('')
   const [plan, setPlan] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [coursesLoading, setCoursesLoading] = useState(true)
   const { showToast } = useToast()
 
-  const fetchPlan = async () => {
-    setLoading(true)
-    try {
-      const data = await getStudyPlan(courseId)
-      setPlan(data)
-    } catch {
-      showToast('Failed to load study plan.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // 1. Fetch real enrolled courses
   useEffect(() => {
+    let mounted = true
+    const loadCourses = async () => {
+      setCoursesLoading(true)
+      try {
+        const enrolled = await listCourses()
+        if (mounted) {
+          setCourses(enrolled)
+          if (enrolled.length > 0) {
+            setCourseId(enrolled[0].id)
+          }
+        }
+      } catch {
+        if (mounted) showToast('Failed to load courses.', 'error')
+      } finally {
+        if (mounted) setCoursesLoading(false)
+      }
+    }
+    loadCourses()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  // 2. Fetch study plan for selected course
+  useEffect(() => {
+    if (!courseId) {
+      setPlan(null)
+      setLoading(false)
+      return
+    }
+
+    let mounted = true
+    const fetchPlan = async () => {
+      setLoading(true)
+      try {
+        const data = await getStudyPlan(courseId)
+        if (mounted) setPlan(data)
+      } catch {
+        if (mounted) setPlan(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
     fetchPlan()
+    return () => {
+      mounted = false
+    }
   }, [courseId])
 
   // Decision D16: Add to Calendar & .ics file download
   const handleExportICS = () => {
+    if (!plan) return
     const calendarEvent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//AiCademy//Study Coach Sprint//EN',
       'BEGIN:VEVENT',
-      `SUMMARY:AiCademy Mastery Sprint: ${plan?.title || 'Database Systems'}`,
-      `DESCRIPTION:${plan?.steps?.map((s: any) => `${s.step}. ${s.title}`).join('\\n')}`,
+      `SUMMARY:AiCademy Mastery Sprint: ${plan?.title || 'Course Mastery'}`,
+      `DESCRIPTION:${(plan?.steps || []).map((s: any) => `${s.step}. ${s.title}`).join('\\n')}`,
       'DTSTART:20261102T150000Z',
       'DTEND:20261102T163000Z',
       'STATUS:CONFIRMED',
@@ -69,6 +110,35 @@ export const StudyCoachPage: React.FC = () => {
     URL.revokeObjectURL(url)
 
     showToast('AiCademy_Study_Sprint.ics downloaded. Added to your calendar (D16).', 'success')
+  }
+
+  if (coursesLoading) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <Skeleton className="h-12 w-64 rounded-[8px]" />
+        <Skeleton className="h-40 w-full rounded-[8px]" />
+      </div>
+    )
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Personalized Study Coach</h1>
+          <p className="text-sm text-slate-500">
+            Autonomous study plans tailored to upcoming assignment deadlines and concept mastery gaps.
+          </p>
+        </div>
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<Compass className="w-10 h-10 text-accent" />}
+            title="No Enrolled Courses Found"
+            description="You are not enrolled in any courses yet. Join a course using an enrollment code from your professor to unlock adaptive AI study plans."
+          />
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -91,9 +161,11 @@ export const StudyCoachPage: React.FC = () => {
           onChange={(e) => setCourseId(e.target.value)}
           className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
-          <option value="crs_cs301">CS301 Database Systems</option>
-          <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-          <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.code}: {c.name}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -103,6 +175,14 @@ export const StudyCoachPage: React.FC = () => {
           <Skeleton className="h-28 w-full rounded-[8px]" />
           <Skeleton className="h-28 w-full rounded-[8px]" />
         </div>
+      ) : !plan || !plan.steps || plan.steps.length === 0 ? (
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<BookOpen className="w-8 h-8 text-accent" />}
+            title="No Active Study Sprint"
+            description="As your professor uploads syllabus materials and creates assignments, your AI Study Coach will generate targeted review sprints."
+          />
+        </Card>
       ) : (
         <div className="space-y-6">
           {/* Hero Mastery Sprint Card */}
@@ -119,16 +199,18 @@ export const StudyCoachPage: React.FC = () => {
                   <span className="text-xs font-bold uppercase tracking-wider text-accent">
                     Active Mastery Sprint
                   </span>
-                  <Badge variant="warning">Assignment Due in 5 Days</Badge>
+                  {plan.deadline && <Badge variant="warning">{plan.deadline}</Badge>}
                 </div>
-                <h2 className="text-xl font-bold text-ink">{plan?.title}</h2>
-                <p className="text-sm text-slate-600">
-                  Targeted review focused on weak topics identified from diagnostic traces:{' '}
-                  <span className="font-semibold text-accent">
-                    {(plan?.weakTopics || []).join(', ')}
-                  </span>
-                  .
-                </p>
+                <h2 className="text-xl font-bold text-ink">{plan.title}</h2>
+                {plan.weakTopics && plan.weakTopics.length > 0 && (
+                  <p className="text-sm text-slate-600">
+                    Targeted review focused on weak topics identified from diagnostic traces:{' '}
+                    <span className="font-semibold text-accent">
+                      {plan.weakTopics.join(', ')}
+                    </span>
+                    .
+                  </p>
+                )}
               </div>
 
               <div className="shrink-0 flex items-center gap-3">
@@ -147,49 +229,48 @@ export const StudyCoachPage: React.FC = () => {
               Actionable 3-Step Study Plan
             </h3>
 
-            {(plan?.steps || []).map((step: any, idx: number) => (
+            {plan.steps.map((step: any, idx: number) => (
               <Card key={idx} padding="standard" className="border border-mist hover:border-accent/40 transition-all">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3.5">
                     <span className="w-7 h-7 rounded-[6px] bg-accent-soft text-accent text-sm font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {step.step}
+                      {step.step || idx + 1}
                     </span>
                     <div className="space-y-1">
                       <h4 className="text-sm font-bold text-ink">{step.title}</h4>
-                      <p className="text-xs text-slate-500 flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5" />
-                        Estimated Time: {step.duration}
-                      </p>
+                      {step.duration && (
+                        <p className="text-xs text-slate-500 flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5" />
+                          Estimated Time: {step.duration}
+                        </p>
+                      )}
                     </div>
                   </div>
-
-                  <span className="p-2 rounded-[6px] bg-chalk border border-mist text-slate-500 hover:text-accent hover:border-accent text-xs font-medium inline-flex items-center gap-1 cursor-pointer transition-colors">
-                    <BookOpen className="w-3.5 h-3.5" />
-                    Open Material
-                  </span>
                 </div>
               </Card>
             ))}
           </div>
 
           {/* Recommended Materials Quick Links */}
-          <Card padding="standard" className="border border-mist space-y-3">
-            <h4 className="text-sm font-bold text-ink flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-accent" />
-              Direct Lecture Slide Citations for this Sprint
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(plan?.recommendedMaterials || []).map((mat: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-[6px] bg-chalk border border-mist flex items-center justify-between gap-3 text-xs"
-                >
-                  <span className="font-medium text-ink truncate">{mat.title}</span>
-                  <Badge variant="brand">Slides {mat.pages?.join(', ')}</Badge>
-                </div>
-              ))}
-            </div>
-          </Card>
+          {plan.recommendedMaterials && plan.recommendedMaterials.length > 0 && (
+            <Card padding="standard" className="border border-mist space-y-3">
+              <h4 className="text-sm font-bold text-ink flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-accent" />
+                Direct Lecture Slide Citations for this Sprint
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {plan.recommendedMaterials.map((mat: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-[6px] bg-chalk border border-mist flex items-center justify-between gap-3 text-xs"
+                  >
+                    <span className="font-medium text-ink truncate">{mat.title}</span>
+                    {mat.pages && <Badge variant="brand">Slides {mat.pages.join(', ')}</Badge>}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </div>

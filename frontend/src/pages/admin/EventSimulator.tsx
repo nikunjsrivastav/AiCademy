@@ -2,9 +2,11 @@
  * EXTENSION: Orchestrator Event Simulator page from /docs/AGENTIC_DESIGN.md B1.1 and B6.
  * Dispatches simulated events to the Orchestrator and visualizes agent routing decisions.
  */
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { startAgentRun } from '@/services/agents'
+import { listCourses } from '@/services/courses'
+import type { Course } from '@/types/domain'
 import type { AgentEventType, SimulationMode } from '@/types/agents'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -58,12 +60,22 @@ const EVENT_TYPES: {
 ]
 
 export const EventSimulator: React.FC = () => {
-  const [courseId, setCourseId] = useState('crs_cs301')
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseId, setCourseId] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<AgentEventType>('submission.created')
   const [simulationMode, setSimulationMode] = useState<SimulationMode>('normal')
   const [submitting, setSubmitting] = useState(false)
   const [lastRunId, setLastRunId] = useState<string | null>(null)
   const { showToast } = useToast()
+
+  useEffect(() => {
+    listCourses()
+      .then((list) => {
+        setCourses(list)
+        if (list.length > 0) setCourseId(list[0].id)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleDispatch = async () => {
     setSubmitting(true)
@@ -117,9 +129,15 @@ export const EventSimulator: React.FC = () => {
           onChange={(e) => setCourseId(e.target.value)}
           className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
-          <option value="crs_cs301">CS301 Database Systems</option>
-          <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-          <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+          {courses.length === 0 ? (
+            <option value="">No courses created yet</option>
+          ) : (
+            courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code}: {c.name}
+              </option>
+            ))
+          )}
         </select>
       </div>
 

@@ -1,12 +1,14 @@
 /**
- * EXTENSION: Agent Memory Transparency Viewer from /docs/AGENTIC_DESIGN.md B4 and Decision D16.
- * Inspectable and deletable memory store tracking concept mastery, grading tones, and preferences.
+ * EXTENSION: Agent Memory Viewer from /docs/AGENTIC_DESIGN.md B4 and Decision D16.
+ * Provides complete transparency into student memory profiles and allows self-deletion.
  */
 import React, { useState, useEffect } from 'react'
 import { listAgentMemories, deleteAgentMemory } from '@/services/agents'
+import { listCourses } from '@/services/courses'
+import { useAuth } from '@/auth/AuthContext'
 import type { AgentMemory } from '@/types/agents'
+import type { Course } from '@/types/domain'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
 import { ExtensionTag } from '@/components/ui/ExtensionTag'
@@ -17,21 +19,57 @@ import {
   Brain,
   Trash2,
   Shield,
+  BookOpen,
 } from 'lucide-react'
 
 export const AgentMemoryViewer: React.FC = () => {
-  const [courseId, setCourseId] = useState('crs_cs301')
+  const { user } = useAuth()
+  const [courses, setCourses] = useState<Course[]>([])
+  const [courseId, setCourseId] = useState<string>('')
   const [memories, setMemories] = useState<AgentMemory[]>([])
   const [loading, setLoading] = useState(true)
+  const [coursesLoading, setCoursesLoading] = useState(true)
   const { showToast } = useToast()
 
+  // 1. Fetch real courses based on user role
+  useEffect(() => {
+    let mounted = true
+    const loadCourses = async () => {
+      setCoursesLoading(true)
+      try {
+        const list = await listCourses()
+        if (mounted) {
+          setCourses(list)
+          if (list.length > 0) {
+            setCourseId(list[0].id)
+          }
+        }
+      } catch {
+        if (mounted) showToast('Failed to load courses.', 'error')
+      } finally {
+        if (mounted) setCoursesLoading(false)
+      }
+    }
+    loadCourses()
+    return () => {
+      mounted = false
+    }
+  }, [user])
+
+  // 2. Fetch memories for selected course
   const fetchMemories = async () => {
+    if (!courseId) {
+      setMemories([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const data = await listAgentMemories(courseId)
       setMemories(data)
     } catch {
-      showToast('Failed to load agent memories.', 'error')
+      setMemories([])
     } finally {
       setLoading(false)
     }
@@ -49,6 +87,39 @@ export const AgentMemoryViewer: React.FC = () => {
     } catch {
       showToast('Could not remove memory.', 'error')
     }
+  }
+
+  if (coursesLoading) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <Skeleton className="h-12 w-64 rounded-[8px]" />
+        <Skeleton className="h-24 w-full rounded-[8px]" />
+      </div>
+    )
+  }
+
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Agent Memory Transparency</h1>
+          <p className="text-sm text-slate-500">
+            Audit agent-remembered learning traits, weak concepts, and feedback tone guidelines.
+          </p>
+        </div>
+        <Card padding="standard" className="border border-mist">
+          <EmptyState
+            icon={<BookOpen className="w-10 h-10 text-accent" />}
+            title="No Courses Available"
+            description={
+              user?.role === 'student'
+                ? 'Join a course with an enrollment code to see personalized agent memory traces.'
+                : 'Create a course to audit student memory profiles.'
+            }
+          />
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -72,9 +143,11 @@ export const AgentMemoryViewer: React.FC = () => {
           onChange={(e) => setCourseId(e.target.value)}
           className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
-          <option value="crs_cs301">CS301 Database Systems</option>
-          <option value="crs_cs220">CS220 Data Structures & Algorithms</option>
-          <option value="crs_ai410">AI410 Machine Learning & Neural Networks</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.code}: {c.name}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -109,27 +182,26 @@ export const AgentMemoryViewer: React.FC = () => {
                     <span className="text-xs font-mono font-bold px-2 py-0.5 bg-accent-soft text-accent rounded-[4px]">
                       {mem.scope}
                     </span>
-                    <h3 className="text-sm font-bold text-ink">{mem.key}</h3>
-                    <Badge variant="neutral">Source: {mem.sourceAgent}</Badge>
+                    <span className="text-xs text-slate-400">
+                      Agent: {mem.sourceAgent}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">
+                      {new Date(mem.updatedAt).toLocaleDateString()}
+                    </span>
                   </div>
 
-                  <p className="text-xs text-slate-700 dark:text-slate-300 font-mono bg-chalk p-3 rounded-[6px] border border-mist">
-                    {mem.value}
-                  </p>
-
-                  <span className="text-xs text-slate-400 font-mono block">
-                    Updated: {new Date(mem.updatedAt).toLocaleString()}
-                  </span>
+                  <p className="text-sm font-semibold text-ink">{mem.key}</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">{mem.value}</p>
                 </div>
 
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleDelete(mem.id)}
-                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 shrink-0"
+                  className="text-rose-600 hover:text-rose-700 hover:border-rose-300"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Forget
+                  <Trash2 className="w-4 h-4" />
+                  Delete
                 </Button>
               </div>
             </Card>
