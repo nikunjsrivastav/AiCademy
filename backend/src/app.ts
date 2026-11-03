@@ -20,11 +20,12 @@ app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'))
 const uploadDir = path.resolve(process.cwd(), config.uploadDir)
 app.use('/uploads', express.static(uploadDir))
 
-// API Routes
+// API Routes (Mounted on both /api and root to handle any rewrite prefixing)
 app.use('/api', apiRouter)
+app.use('/', apiRouter)
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get(['/health', '/api/health'], (_req, res) => {
   res.json({
     status: 'ok',
     service: 'AiCademy API',

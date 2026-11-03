@@ -19,154 +19,173 @@ import type {
 } from '../types/index.js'
 
 // ---------------------------------------------------------------------------
-// Mongoose Schemas (MongoDB Atlas)
+// Mongoose Schemas (Matching domain types exactly)
 // ---------------------------------------------------------------------------
-const UserSchema = new Schema<User>({
-  id: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true, lowercase: true },
-  passwordHash: { type: String, required: true },
-  role: { type: String, required: true, enum: ['student', 'professor', 'administrator'] },
-  profile: {
+const UserSchema = new Schema<User>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true, index: true },
+    passwordHash: { type: String, required: true },
+    role: { type: String, required: true, enum: ['student', 'professor', 'administrator'] },
+    profile: {
+      department: String,
+      studentNumber: String,
+      avatarHue: Number,
+    },
+    createdAt: { type: String, required: true },
+  },
+  { collection: 'users', timestamps: false }
+)
+
+const CourseSchema = new Schema<Course>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    code: { type: String, required: true, index: true },
+    name: { type: String, required: true },
+    description: { type: String, default: '' },
+    enrollmentCode: { type: String, required: true, unique: true, index: true },
+    professorId: { type: String, required: true, index: true },
+    studentIds: [{ type: String }],
     department: String,
-    bio: String,
-    studentNumber: String,
-    avatarHue: Number,
-  },
-  createdAt: { type: String, required: true },
-})
-
-const CourseSchema = new Schema<Course>({
-  id: { type: String, required: true, unique: true },
-  code: { type: String, required: true, uppercase: true },
-  name: { type: String, required: true },
-  description: { type: String, default: '' },
-  enrollmentCode: { type: String, required: true, unique: true },
-  professorId: { type: String, required: true },
-  studentIds: [{ type: String }],
-  department: String,
-  term: String,
-  hue: Number,
-  leaderboardWeights: {
-    assignments: { type: Number, default: 0.5 },
-    projects: { type: Number, default: 0.3 },
-    doubts: { type: Number, default: 0.2 },
-  },
-  createdAt: { type: String, required: true },
-})
-
-const MaterialSchema = new Schema<Material>({
-  id: { type: String, required: true, unique: true },
-  courseId: { type: String, required: true },
-  title: { type: String, required: true },
-  description: { type: String, default: '' },
-  type: { type: String, required: true },
-  fileUrl: { type: String, required: true },
-  fileName: { type: String, required: true },
-  fileSize: { type: Number, required: true },
-  mimeType: { type: String, required: true },
-  uploaderId: { type: String, required: true },
-  indexing: {
-    status: { type: String, default: 'indexed' },
-    chunkCount: { type: Number, default: 0 },
-    chunkSize: { type: Number, default: 800 },
-    topics: [{ type: String }],
-    lastIndexedAt: String,
-  },
-  createdAt: { type: String, required: true },
-})
-
-const AssignmentSchema = new Schema<Assignment>({
-  id: { type: String, required: true, unique: true },
-  courseId: { type: String, required: true },
-  title: { type: String, required: true },
-  description: { type: String, default: '' },
-  classification: { type: String, default: 'assignment' },
-  rubricCriteria: [
-    {
-      id: String,
-      name: String,
-      description: String,
-      weight: Number,
-      maxScore: Number,
+    term: String,
+    hue: Number,
+    leaderboardWeights: {
+      assignments: { type: Number, default: 0.5 },
+      projects: { type: Number, default: 0.3 },
+      doubts: { type: Number, default: 0.2 },
     },
-  ],
-  maxMarks: { type: Number, default: 100 },
-  dueDate: { type: String, required: true },
-  creatorId: { type: String, required: true },
-  createdAt: { type: String, required: true },
-})
+    createdAt: { type: String, required: true },
+  },
+  { collection: 'courses', timestamps: false }
+)
 
-const SubmissionSchema = new Schema<Submission>({
-  id: { type: String, required: true, unique: true },
-  assignmentId: { type: String, required: true },
-  studentId: { type: String, required: true },
-  courseId: { type: String, required: true },
-  fileUrl: { type: String, required: true },
-  fileName: { type: String, required: true },
-  fileSize: { type: Number, required: true },
-  extractedTextStatus: { type: String, default: 'extracted' },
-  evaluationStatus: { type: String, default: 'graded' },
-  marks: { type: Number, default: null },
-  feedback: { type: String, default: null },
-  mistakes: [{ type: String }],
-  suggestions: [{ type: String }],
-  confidence: { type: Number, default: null },
-  aiEvaluation: Schema.Types.Mixed,
-  overriddenByProfessor: { type: Boolean, default: false },
-  professorNotes: String,
-  submittedAt: { type: String, required: true },
-  isLate: { type: Boolean, default: false },
-  version: { type: Number, default: 1 },
-})
-
-const DoubtSchema = new Schema<Doubt>({
-  id: { type: String, required: true, unique: true },
-  courseId: { type: String, required: true },
-  studentId: { type: String, required: true },
-  question: { type: String, required: true },
-  answer: { type: String, required: true },
-  citations: [
-    {
-      materialId: String,
-      materialTitle: String,
-      pageNumber: Number,
-      snippet: String,
-      similarity: Number,
+const MaterialSchema = new Schema<Material>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    courseId: { type: String, required: true, index: true },
+    title: { type: String, required: true },
+    description: { type: String, default: '' },
+    type: { type: String, required: true },
+    fileUrl: { type: String, required: true },
+    fileName: { type: String, required: true },
+    fileSize: { type: Number, required: true },
+    mimeType: { type: String, required: true },
+    uploaderId: { type: String, required: true },
+    indexing: {
+      status: { type: String, default: 'indexed' },
+      chunkCount: { type: Number, default: 0 },
+      chunkSize: { type: Number, default: 800 },
+      topics: [{ type: String }],
+      lastIndexedAt: String,
     },
-  ],
-  quality: {
-    score: Number,
-    clarity: Number,
-    specificity: Number,
-    effort: Number,
+    createdAt: { type: String, required: true },
+  },
+  { collection: 'materials', timestamps: false }
+)
+
+const AssignmentSchema = new Schema<Assignment>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    courseId: { type: String, required: true, index: true },
+    title: { type: String, required: true },
+    description: { type: String, default: '' },
+    classification: { type: String, default: 'assignment' },
+    dueDate: { type: String, required: true },
+    maxMarks: { type: Number, default: 100 },
+    rubricCriteria: [
+      {
+        id: String,
+        name: String,
+        description: String,
+        maxScore: Number,
+      },
+    ],
+    createdAt: { type: String, required: true },
+  },
+  { collection: 'assignments', timestamps: false }
+)
+
+const SubmissionSchema = new Schema<Submission>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    assignmentId: { type: String, required: true, index: true },
+    studentId: { type: String, required: true, index: true },
+    courseId: { type: String, required: true, index: true },
+    fileUrl: { type: String, required: true },
+    fileName: { type: String, required: true },
+    fileSize: { type: Number, required: true },
+    extractedTextStatus: { type: String, default: 'extracted' },
+    evaluationStatus: { type: String, default: 'graded' },
+    marks: { type: Number, default: null },
     feedback: String,
+    professorNotes: String,
+    overriddenByProfessor: { type: Boolean, default: false },
+    mistakes: [{ type: String }],
+    suggestions: [{ type: String }],
+    confidence: Number,
+    aiEvaluation: Schema.Types.Mixed,
+    submittedAt: { type: String, required: true },
+    isLate: { type: Boolean, default: false },
+    version: { type: Number, default: 1 },
   },
-  createdAt: { type: String, required: true },
-})
+  { collection: 'submissions', timestamps: false }
+)
 
-const AnnouncementSchema = new Schema<Announcement>({
-  id: { type: String, required: true, unique: true },
-  courseId: { type: String, required: true },
-  authorId: { type: String, required: true },
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  pinned: { type: Boolean, default: false },
-  linkedAssignmentId: String,
-  comments: [
-    {
-      id: String,
-      announcementId: String,
-      userId: String,
-      authorName: String,
-      authorRole: String,
-      content: String,
-      createdAt: String,
+const DoubtSchema = new Schema<Doubt>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    courseId: { type: String, required: true, index: true },
+    studentId: { type: String, required: true, index: true },
+    question: { type: String, required: true },
+    answer: { type: String, required: true },
+    citations: [
+      {
+        materialId: String,
+        materialTitle: String,
+        pageNumber: Number,
+        snippet: String,
+        similarity: Number,
+      },
+    ],
+    quality: {
+      score: Number,
+      clarity: Number,
+      specificity: Number,
+      effort: Number,
+      feedback: String,
     },
-  ],
-  createdAt: { type: String, required: true },
-})
+    createdAt: { type: String, required: true },
+  },
+  { collection: 'doubts', timestamps: false }
+)
 
+const AnnouncementSchema = new Schema<Announcement>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    courseId: { type: String, required: true, index: true },
+    authorId: { type: String, required: true },
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+    pinned: { type: Boolean, default: false },
+    linkedAssignmentId: String,
+    comments: [
+      {
+        id: String,
+        announcementId: String,
+        userId: String,
+        authorName: String,
+        authorRole: String,
+        content: String,
+        createdAt: String,
+      },
+    ],
+    createdAt: { type: String, required: true },
+  },
+  { collection: 'announcements', timestamps: false }
+)
+
+// Prevent Mongoose model overwrite errors in hot-reloading
 export const UserModel = mongoose.models.User || mongoose.model<User>('User', UserSchema)
 export const CourseModel = mongoose.models.Course || mongoose.model<Course>('Course', CourseSchema)
 export const MaterialModel = mongoose.models.Material || mongoose.model<Material>('Material', MaterialSchema)
@@ -176,7 +195,34 @@ export const DoubtModel = mongoose.models.Doubt || mongoose.model<Doubt>('Doubt'
 export const AnnouncementModel = mongoose.models.Announcement || mongoose.model<Announcement>('Announcement', AnnouncementSchema)
 
 // ---------------------------------------------------------------------------
-// Store Architecture (Clean with NO Preseeding)
+// Singleton Mongo Connection Manager (Serverless-Safe)
+// ---------------------------------------------------------------------------
+let connectionPromise: Promise<typeof mongoose> | null = null
+
+export async function ensureConnected(): Promise<boolean> {
+  if (Number(mongoose.connection.readyState) === 1) return true
+  if (!config.mongoUri) return false
+
+  if (!connectionPromise) {
+    connectionPromise = mongoose.connect(config.mongoUri, {
+      serverSelectionTimeoutMS: 6000,
+      connectTimeoutMS: 6000,
+    }).then((m) => {
+      console.log('[Database] Connected to MongoDB Atlas successfully')
+      return m
+    }).catch((err) => {
+      connectionPromise = null
+      console.warn('[Database] MongoDB Atlas connection error:', err?.message || err)
+      return mongoose
+    })
+  }
+
+  await connectionPromise
+  return Number(mongoose.connection.readyState) === 1
+}
+
+// ---------------------------------------------------------------------------
+// Database Store
 // ---------------------------------------------------------------------------
 export class DatabaseStore {
   users: Map<string, User> = new Map()
@@ -195,144 +241,161 @@ export class DatabaseStore {
   agentMemories: Map<string, AgentMemory> = new Map()
   notifications: Map<string, Notification> = new Map()
 
-  isConnectedToMongo: boolean = false
-
   constructor() {
-    this.initMongo()
+    ensureConnected().then(() => this.hydrateCaches()).catch(() => {})
   }
 
-  async initMongo() {
-    if (config.mongoUri) {
-      try {
-        await mongoose.connect(config.mongoUri, {
-          serverSelectionTimeoutMS: 5000,
-        })
-        this.isConnectedToMongo = true
-        console.log('[Database] Connected to MongoDB Atlas successfully (Clean unseeded database)')
+  async hydrateCaches() {
+    if (Number(mongoose.connection.readyState) !== 1) return
+    try {
+      const [uList, cList, mList, aList, sList, dList, annList] = await Promise.all([
+        UserModel.find().lean(),
+        CourseModel.find().lean(),
+        MaterialModel.find().lean(),
+        AssignmentModel.find().lean(),
+        SubmissionModel.find().lean(),
+        DoubtModel.find().lean(),
+        AnnouncementModel.find().lean(),
+      ])
 
-        // Synchronize in-memory caches from MongoDB collections
-        const [uList, cList, mList, aList, sList, dList, annList] = await Promise.all([
-          UserModel.find().lean(),
-          CourseModel.find().lean(),
-          MaterialModel.find().lean(),
-          AssignmentModel.find().lean(),
-          SubmissionModel.find().lean(),
-          DoubtModel.find().lean(),
-          AnnouncementModel.find().lean(),
-        ])
-
-        uList.forEach((u: any) => this.users.set(u.id, u))
-        cList.forEach((c: any) => this.courses.set(c.id, c))
-        mList.forEach((m: any) => this.materials.set(m.id, m))
-        aList.forEach((a: any) => this.assignments.set(a.id, a))
-        sList.forEach((s: any) => this.submissions.set(s.id, s))
-        dList.forEach((d: any) => this.doubts.set(d.id, d))
-        annList.forEach((an: any) => this.announcements.set(an.id, an))
-      } catch (err) {
-        console.warn('[Database] MongoDB connection failed or URI not ready, running in clean local mode:', err)
-      }
-    } else {
-      console.log('[Database] No MONGODB_URI set — running in clean unseeded mode')
+      uList.forEach((u: any) => this.users.set(u.id, u))
+      cList.forEach((c: any) => this.courses.set(c.id, c))
+      mList.forEach((m: any) => this.materials.set(m.id, m))
+      aList.forEach((a: any) => this.assignments.set(a.id, a))
+      sList.forEach((s: any) => this.submissions.set(s.id, s))
+      dList.forEach((d: any) => this.doubts.set(d.id, d))
+      annList.forEach((an: any) => this.announcements.set(an.id, an))
+    } catch (err) {
+      console.warn('[Database] Cache hydration error:', err)
     }
   }
 
-  // MongoDB persist helpers
+  // --- Safe Lookup Helpers (Fall back to MongoDB if not in memory) ---
+
+  async getUser(id: string): Promise<User | undefined> {
+    const mem = this.users.get(id)
+    if (mem) return mem
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      const doc = await UserModel.findOne({ id }).lean()
+      if (doc) {
+        this.users.set(doc.id, doc as any)
+        return doc as any
+      }
+    }
+    return undefined
+  }
+
+  async findUserByEmail(email: string): Promise<User | undefined> {
+    const lower = email.trim().toLowerCase()
+    const mem = Array.from(this.users.values()).find((u) => u.email.toLowerCase() === lower)
+    if (mem) return mem
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      const doc = await UserModel.findOne({ email: lower }).lean()
+      if (doc) {
+        this.users.set(doc.id, doc as any)
+        return doc as any
+      }
+    }
+    return undefined
+  }
+
+  async getCourse(id: string): Promise<Course | undefined> {
+    const mem = this.courses.get(id)
+    if (mem) return mem
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      const doc = await CourseModel.findOne({ id }).lean()
+      if (doc) {
+        this.courses.set(doc.id, doc as any)
+        return doc as any
+      }
+    }
+    return undefined
+  }
+
+  async getAllCourses(): Promise<Course[]> {
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      const docs = await CourseModel.find().lean()
+      docs.forEach((c: any) => this.courses.set(c.id, c))
+      return docs as any
+    }
+    return Array.from(this.courses.values())
+  }
+
+  // --- Persistence Helpers (Write to Memory + Await MongoDB) ---
+
   async saveUser(user: User) {
     this.users.set(user.id, user)
-    if (this.isConnectedToMongo) {
-      try {
-        await UserModel.findOneAndUpdate({ id: user.id }, user, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist user to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await UserModel.findOneAndUpdate({ id: user.id }, user, { upsert: true, new: true })
     }
   }
 
   async saveCourse(course: Course) {
     this.courses.set(course.id, course)
-    if (this.isConnectedToMongo) {
-      try {
-        await CourseModel.findOneAndUpdate({ id: course.id }, course, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist course to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await CourseModel.findOneAndUpdate({ id: course.id }, course, { upsert: true, new: true })
     }
   }
 
   async saveMaterial(mat: Material) {
     this.materials.set(mat.id, mat)
-    if (this.isConnectedToMongo) {
-      try {
-        await MaterialModel.findOneAndUpdate({ id: mat.id }, mat, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist material to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await MaterialModel.findOneAndUpdate({ id: mat.id }, mat, { upsert: true, new: true })
     }
   }
 
   async deleteMaterial(id: string) {
     this.materials.delete(id)
-    if (this.isConnectedToMongo) {
-      try {
-        await MaterialModel.deleteOne({ id })
-      } catch (err) {
-        console.warn('[Database] Failed to delete material from MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await MaterialModel.deleteOne({ id })
     }
   }
 
   async saveAssignment(asg: Assignment) {
     this.assignments.set(asg.id, asg)
-    if (this.isConnectedToMongo) {
-      try {
-        await AssignmentModel.findOneAndUpdate({ id: asg.id }, asg, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist assignment to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await AssignmentModel.findOneAndUpdate({ id: asg.id }, asg, { upsert: true, new: true })
     }
   }
 
   async deleteAssignment(id: string) {
     this.assignments.delete(id)
-    if (this.isConnectedToMongo) {
-      try {
-        await AssignmentModel.deleteOne({ id })
-      } catch (err) {
-        console.warn('[Database] Failed to delete assignment from MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await AssignmentModel.deleteOne({ id })
     }
   }
 
   async saveSubmission(sub: Submission) {
     this.submissions.set(sub.id, sub)
-    if (this.isConnectedToMongo) {
-      try {
-        await SubmissionModel.findOneAndUpdate({ id: sub.id }, sub, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist submission to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await SubmissionModel.findOneAndUpdate({ id: sub.id }, sub, { upsert: true, new: true })
     }
   }
 
   async saveDoubt(doubt: Doubt) {
     this.doubts.set(doubt.id, doubt)
-    if (this.isConnectedToMongo) {
-      try {
-        await DoubtModel.findOneAndUpdate({ id: doubt.id }, doubt, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist doubt to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await DoubtModel.findOneAndUpdate({ id: doubt.id }, doubt, { upsert: true, new: true })
     }
   }
 
   async saveAnnouncement(ann: Announcement) {
     this.announcements.set(ann.id, ann)
-    if (this.isConnectedToMongo) {
-      try {
-        await AnnouncementModel.findOneAndUpdate({ id: ann.id }, ann, { upsert: true })
-      } catch (err) {
-        console.warn('[Database] Failed to persist announcement to MongoDB:', err)
-      }
+    await ensureConnected()
+    if (Number(mongoose.connection.readyState) === 1) {
+      await AnnouncementModel.findOneAndUpdate({ id: ann.id }, ann, { upsert: true, new: true })
     }
   }
 }

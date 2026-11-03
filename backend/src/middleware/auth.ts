@@ -8,7 +8,7 @@ export interface AuthenticatedRequest extends Request {
   user?: User
 }
 
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ code: 'UNAUTHORIZED', message: 'Authentication required' })
@@ -17,7 +17,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   const token = authHeader.split(' ')[1]
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { id: string }
-    const user = db.users.get(decoded.id)
+    const user = await db.getUser(decoded.id)
     if (!user) {
       return res.status(401).json({ code: 'INVALID_TOKEN', message: 'User not found' })
     }

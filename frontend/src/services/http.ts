@@ -4,7 +4,6 @@
  */
 import axios, { AxiosError } from 'axios'
 import { API_BASE_URL } from '@/config'
-import type { ApiErrorBody } from '@/types/api'
 import { tokenStorage } from './tokenStorage'
 
 export const UNAUTHORIZED_EVENT = 'aicademy:unauthorized'
@@ -46,16 +45,18 @@ http.interceptors.request.use((config) => {
 // Normalize every failure into an ApiError.
 http.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<ApiErrorBody>) => {
+  (error: AxiosError<any>) => {
     if (error.response) {
       const { status, data } = error.response
       if (status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+      const code = data?.error?.code || data?.code || 'HTTP_ERROR'
+      const message = data?.error?.message || data?.message || error.message
       return Promise.reject(
         new ApiError(
           status,
-          data?.error?.code ?? 'HTTP_ERROR',
-          data?.error?.message ?? error.message,
-          data?.error?.details,
+          code,
+          message,
+          data?.error?.details || data?.details,
         ),
       )
     }
