@@ -220,21 +220,29 @@ async function extractTextFromPdf(
         mergedText = pages.map((p) => p.text).join('\n\n').trim()
       }
 
-      // If items extraction yielded little text, fall back to extractText
-      if (!mergedText || mergedText.split(/\s+/).filter(Boolean).length < 20) {
-        if (typeof unpdf.extractText === 'function') {
+      // Also check standard extractText to see if it yields richer text coverage
+      if (typeof unpdf.extractText === 'function') {
+        try {
           const result = await unpdf.extractText(uint8, { mergePages: false })
           const rawPages = Array.isArray(result.text) ? result.text : [result.text]
-          pageCount = result.totalPages || rawPages.length || pageCount
-
-          pages.length = 0
+          const altPages: ExtractedPage[] = []
           rawPages.forEach((pText: any, i: number) => {
             const cleaned = (typeof pText === 'string' ? pText : '').trim()
             if (cleaned) {
-              pages.push({ pageNumber: i + 1, text: cleaned })
+              altPages.push({ pageNumber: i + 1, text: cleaned })
             }
           })
-          mergedText = pages.map((p) => p.text).join('\n\n').trim()
+          const altText = altPages.map((p) => p.text).join('\n\n').trim()
+          const altWordCount = altText.split(/\s+/).filter(Boolean).length
+          const curWordCount = mergedText.split(/\s+/).filter(Boolean).length
+          if (altWordCount > curWordCount) {
+            mergedText = altText
+            pages.length = 0
+            pages.push(...altPages)
+            pageCount = result.totalPages || altPages.length || pageCount
+          }
+        } catch (altErr) {
+          console.warn('[Extraction] unpdf extractText secondary check:', altErr)
         }
       }
     }
@@ -291,12 +299,19 @@ function extractFromPdfFlateStreams(buffer: Buffer): { text: string; pageCount: 
 
     const content = decompressed.toString('latin1')
 
-    // Extract TJ array text
-    const arrayMatches = content.match(/\[(.*?)\]\s*TJ/g) || []
+    // Extract TJ array text (both literal strings (...) and hex strings <...>)
+    const arrayMatches = content.match(/\[([\s\S]*?)\]\s*TJ/g) || []
     for (const arr of arrayMatches) {
-      const parts = arr.match(/\((.*?)\)/g) || []
-      for (const p of parts) {
+      // Extract paren strings
+      const parenMatches = arr.match(/\((.*?)\)/g) || []
+      for (const p of parenMatches) {
         const decoded = decodePdfString(p.slice(1, -1))
+        if (decoded.trim()) combinedText += decoded + ' '
+      }
+      // Extract hex strings inside TJ array (common in LaTeX / pdflatex font subsets)
+      const hexMatches = arr.match(/<([0-9a-fA-F\s]+)>/g) || []
+      for (const h of hexMatches) {
+        const decoded = decodeHexPdfString(h.slice(1, -1))
         if (decoded.trim()) combinedText += decoded + ' '
       }
     }
@@ -309,14 +324,12 @@ function extractFromPdfFlateStreams(buffer: Buffer): { text: string; pageCount: 
       if (decoded.trim()) combinedText += decoded + ' '
     }
 
-    // Extract hex text <...> Tj
+    // Extract hex text <...> Tj (decoding both ASCII and UTF-16BE)
     const hexMatches = content.match(/<([0-9a-fA-F\s]+)>\s*T[jJ]/g) || []
     for (const h of hexMatches) {
       const hexStr = h.replace(/^[<]/, '').replace(/[>]\s*T[jJ]$/, '').replace(/\s+/g, '')
-      try {
-        const decodedHex = Buffer.from(hexStr, 'hex').toString('utf-8')
-        if (decodedHex.trim()) combinedText += decodedHex + ' '
-      } catch {}
+      const decodedHex = decodeHexPdfString(hexStr)
+      if (decodedHex.trim()) combinedText += decodedHex + ' '
     }
   }
 
@@ -338,6 +351,25 @@ function extractFromPdfFlateStreams(buffer: Buffer): { text: string; pageCount: 
   return {
     text: combinedText.trim(),
     pageCount,
+  }
+}
+
+function decodeHexPdfString(hexStr: string): string {
+  const cleanHex = hexStr.replace(/\s+/g, '')
+  if (!cleanHex) return ''
+  const evenHex = cleanHex.length % 2 !== 0 ? cleanHex + '0' : cleanHex
+  try {
+    const buf = Buffer.from(evenHex, 'hex')
+    // Check if UTF-16BE (BOM or high-byte zero standard ASCII in 16-bit)
+    if (buf.length >= 2 && ((buf[0] === 0xfe && buf[1] === 0xff) || (buf[0] === 0x00 && buf[1] >= 0x20))) {
+      const decoded = new TextDecoder('utf-16be').decode(buf)
+      if (decoded && decoded.trim()) return decoded
+    }
+    const utf8 = buf.toString('utf-8')
+    if (/[a-zA-Z0-9]/.test(utf8)) return utf8
+    return buf.toString('latin1')
+  } catch {
+    return ''
   }
 }
 

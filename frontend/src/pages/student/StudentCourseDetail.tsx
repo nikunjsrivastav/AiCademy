@@ -1075,12 +1075,12 @@ export const StudentCourseDetail: React.FC = () => {
                   {selectedFile ? selectedFile.name : 'Click to select or drag and drop your file'}
                 </p>
                 <p className="text-[11px] text-muted mt-1">
-                  Supported formats: PDF, DOCX, TXT, ZIP up to 10 MB
+                  Supported formats: PDF, DOCX, TXT, code (.py, .js, .java, .cpp), ZIP up to 10 MB
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.docx,.txt,.zip"
+                  accept=".pdf,.docx,.txt,.zip,.py,.js,.ts,.java,.cpp,.c,.md,.json,.sql"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   className="hidden"
                 />

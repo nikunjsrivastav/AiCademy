@@ -26,18 +26,26 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
 
   const originalName = file?.originalname || body.fileName || 'submission.zip'
   const ext = originalName.split('.').pop()?.toLowerCase() || 'zip'
-  const allowedExts = ['pdf', 'docx', 'txt', 'zip', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'md']
+  const allowedExts = ['pdf', 'docx', 'txt', 'zip', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'md', 'json', 'sql', 'html', 'css', 'go', 'rs']
   if (!allowedExts.includes(ext)) {
     return res.status(400).json({ code: 'UNSUPPORTED_FORMAT', message: `File extension .${ext} is not allowed. Allowed: ${allowedExts.join(', ')}` })
   }
 
+  // 1. Capture file buffer immediately from memoryStorage or disk before any storage side-effects
+  const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
+  const actualSize = file?.size || (fileBuffer ? fileBuffer.length : body.fileSize || 50000)
+
   let fileUrl = body.fileUrl || '/uploads/submissions/file.zip'
-  let fileSize = body.fileSize || 50000
+  let fileSize = actualSize
 
   if (file) {
-    const uploadRes = await uploadFileToStorage('submissions', file)
-    fileUrl = uploadRes.url
-    fileSize = uploadRes.fileSize
+    try {
+      const uploadRes = await uploadFileToStorage('submissions', file)
+      fileUrl = uploadRes.url
+      fileSize = uploadRes.fileSize || actualSize
+    } catch (storageErr) {
+      console.warn('[Submissions] Storage upload warning:', storageErr)
+    }
   }
 
   const now = new Date()
@@ -48,16 +56,15 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
   const existing = existingList.filter((s) => s.studentId === user.id)
   const version = existing.length + 1
 
-  // 1. Comprehensive submission content & text extraction
-  let submissionContent = body.submissionContent || body.content || ''
-  const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
-  let extractedDoc = null
+  // 2. Comprehensive submission content & text extraction
+  let submissionContent = (body.submissionContent || body.content || '').trim()
+  let extractedDoc: any = null
 
-  if (fileBuffer) {
+  if (fileBuffer && fileBuffer.length > 0) {
     try {
       extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, file?.mimetype)
-      if (extractedDoc && extractedDoc.text && extractedDoc.text.length > 10) {
-        submissionContent = extractedDoc.text
+      if (extractedDoc && extractedDoc.text && extractedDoc.text.trim().length > 0) {
+        submissionContent = extractedDoc.text.trim()
       }
       console.log(`[Submissions] Extracted ${extractedDoc?.wordCount || 0} words from ${originalName} (format: ${extractedDoc?.format})`)
     } catch (extractErr) {
@@ -65,8 +72,17 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     }
   }
 
-  if (!submissionContent && fileBuffer) {
-    submissionContent = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 10000))
+  // Direct UTF-8 buffer decoding fallback for text, scripts, and source files
+  if ((!submissionContent || submissionContent.length < 5) && fileBuffer && fileBuffer.length > 0) {
+    try {
+      const directText = fileBuffer.toString('utf-8').trim()
+      if (directText.length > 0) {
+        submissionContent = directText
+        console.log(`[Submissions] Used direct UTF-8 buffer decoding (${submissionContent.length} chars) for ${originalName}`)
+      }
+    } catch (utf8Err) {
+      console.warn(`[Submissions] Direct UTF-8 decode warning on ${originalName}:`, utf8Err)
+    }
   }
 
   if (!submissionContent) {

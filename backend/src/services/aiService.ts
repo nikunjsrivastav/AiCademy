@@ -476,12 +476,14 @@ ${submissionContent.slice(0, 40000)}
     lowerContent.includes('bug')
 
   // Check if file was unparseable or completely empty
-  const isUnparseable = wordCount === 0 || !cleanContent || cleanContent.startsWith('[Submitted File:') || wordCount < 6
+  const isUnparseable = wordCount === 0 || !cleanContent || cleanContent.startsWith('[Submitted File:')
   if (isUnparseable) {
     return {
       marks: Math.round(maxMarks * 0.15),
       maxMarks,
       confidence: 0.92,
+      topicIdentified: 'Unreadable or Empty Document',
+      topicAlignment: 'low' as const,
       reasoning: `No readable code or solution text could be extracted from "${submissionFileName}". The document appears empty, encrypted, or unparseable. Please resubmit with visible content.`,
       criterionScores: rubricCriteria.map((c) => ({
         criterionId: c.id,
@@ -492,7 +494,7 @@ ${submissionContent.slice(0, 40000)}
       })),
       mistakes: [
         'Document contains no parseable text, code, or mathematical derivations.',
-        'File format or encoding could not be parsed into text.',
+        'File format or encoding could not be parsed into readable text.',
       ],
       suggestions: [
         'Resubmit your work in standard PDF, DOCX, TXT, or code (.py, .js, .java, .cpp) format.',

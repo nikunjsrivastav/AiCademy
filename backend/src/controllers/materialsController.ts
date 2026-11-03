@@ -48,31 +48,35 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
   else if (ext === 'pptx') matType = 'slides'
   else if (ext === 'txt' || ext === 'md') matType = 'notes'
 
+  const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
+  const actualSize = file?.size || (fileBuffer ? fileBuffer.length : body.fileSize || 102400)
+
   let fileUrl = body.fileUrl || '/uploads/materials/doc.pdf'
-  let fileSize = body.fileSize || 102400
-  let mimeType = 'application/pdf'
+  let fileSize = actualSize
+  let mimeType = file?.mimetype || 'application/pdf'
 
   if (file) {
-    const uploadRes = await uploadFileToStorage('materials', file)
-    fileUrl = uploadRes.url
-    fileSize = uploadRes.fileSize
-    mimeType = uploadRes.mimeType
+    try {
+      const uploadRes = await uploadFileToStorage('materials', file)
+      fileUrl = uploadRes.url
+      fileSize = uploadRes.fileSize || actualSize
+      mimeType = uploadRes.mimeType || mimeType
+    } catch (storageErr) {
+      console.warn('[Materials] Storage upload warning:', storageErr)
+    }
   }
 
   let extractedTopics = [title.split(' ')[0] || 'Core', 'Concepts', 'Course Material']
   let extractedDoc = null
 
-  if (file) {
-    const fileBuffer = file.buffer || (file.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
-    if (fileBuffer) {
-      try {
-        extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, mimeType)
-        if (extractedDoc.topics.length > 0) {
-          extractedTopics = extractedDoc.topics
-        }
-      } catch (err) {
-        console.warn(`[Materials] Topic extraction warning on ${originalName}:`, err)
+  if (fileBuffer) {
+    try {
+      extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, mimeType)
+      if (extractedDoc.topics.length > 0) {
+        extractedTopics = extractedDoc.topics
       }
+    } catch (err) {
+      console.warn(`[Materials] Topic extraction warning on ${originalName}:`, err)
     }
   }
 
