@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   })
   const [token, setToken] = useState<string | null>(() => tokenStorage.get())
-  const [isLoading, setIsLoading] = useState<boolean>(!tokenStorage.get())
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(tokenStorage.get() && !localStorage.getItem('aicademy.user')))
 
   const logout = useCallback(() => {
     tokenStorage.clear()

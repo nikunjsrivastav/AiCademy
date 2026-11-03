@@ -118,3 +118,14 @@ def test_orchestrator_agent():
     assert data["status"] == "completed"
     assert len(data["steps"]) >= 4
 
+if __name__ == '__main__':
+    test_health()
+    test_ingest_material()
+    test_evaluate_assignment()
+    test_prompt_injection_defense()
+    test_ask_doubt_rag()
+    test_score_doubt_quality()
+    test_list_tools()
+    test_orchestrator_agent()
+    print("All 8 ai-service tests passed successfully!")
+

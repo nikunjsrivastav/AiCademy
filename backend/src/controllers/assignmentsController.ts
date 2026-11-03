@@ -5,7 +5,7 @@ import type { Assignment, RubricCriterion } from '../types/index.js'
 
 export async function listAssignments(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const assignments = Array.from(db.assignments.values()).filter((a) => a.courseId === courseId)
+  const assignments = await db.getAssignmentsByCourse(courseId)
   return res.json(assignments)
 }
 
@@ -26,7 +26,7 @@ export async function createAssignment(req: AuthenticatedRequest, res: Response)
     return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'courseId, title, rubricCriteria, and dueDate are required' })
   }
 
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }

@@ -17,7 +17,7 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     return res.status(404).json({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Assignment not found' })
   }
 
-  const course = db.courses.get(assignment.courseId)
+  const course = await db.getCourse(assignment.courseId)
   if (!course || !course.studentIds.includes(user.id)) {
     return res.status(403).json({ code: 'FORBIDDEN', message: 'You must be enrolled in this course to submit' })
   }
@@ -118,7 +118,7 @@ export async function listSubmissions(req: AuthenticatedRequest, res: Response) 
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Assignment not found' })
   }
 
-  let subs = Array.from(db.submissions.values()).filter((s) => s.assignmentId === assignmentId)
+  let subs = await db.getSubmissionsByAssignment(assignmentId)
 
   // Students can only see their own
   if (user.role === 'student') {

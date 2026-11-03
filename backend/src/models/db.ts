@@ -202,13 +202,27 @@ mongoose.set('bufferCommands', false)
 let lastMongoError: string | null = null
 let connectionPromise: Promise<typeof mongoose> | null = null
 
-export function getMongoStatus() {
+export async function getMongoStatus() {
+  const isConnected = Number(mongoose.connection.readyState) === 1
+  let counts = { users: 0, courses: 0, materials: 0, assignments: 0 }
+  if (isConnected) {
+    try {
+      const [u, c, m, a] = await Promise.all([
+        UserModel.countDocuments(),
+        CourseModel.countDocuments(),
+        MaterialModel.countDocuments(),
+        AssignmentModel.countDocuments(),
+      ])
+      counts = { users: u, courses: c, materials: m, assignments: a }
+    } catch {}
+  }
   return {
-    connected: Number(mongoose.connection.readyState) === 1,
+    connected: isConnected,
     readyState: mongoose.connection.readyState,
     configured: !!config.mongoUri,
     maskedUri: config.mongoUri ? config.mongoUri.replace(/:([^@]+)@/, ':****@') : 'not set',
     lastError: lastMongoError,
+    documents: counts,
   }
 }
 
@@ -218,8 +232,9 @@ export async function ensureConnected(): Promise<boolean> {
 
   if (!connectionPromise) {
     connectionPromise = mongoose.connect(config.mongoUri, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 8000,
+      maxPoolSize: 10,
     }).then((m) => {
       lastMongoError = null
       console.log('[Database] Connected to MongoDB Atlas successfully')
@@ -356,17 +371,26 @@ export class DatabaseStore {
     return Array.from(this.courses.values())
   }
 
-  // --- Persistence Helpers (Write to Memory + Await MongoDB) ---
+  // --- Persistence Helpers (Strict Writes to MongoDB Atlas) ---
 
   async saveUser(user: User) {
     this.users.set(user.id, user)
+    this.users.set(user.email.toLowerCase(), user)
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await UserModel.findOneAndUpdate({ id: user.id }, user, { upsert: true, new: true })
+        await UserModel.findOneAndUpdate(
+          { id: user.id },
+          user,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+        console.log(`[Database] User successfully persisted to Atlas: ${user.email} (${user.id})`)
+      } else {
+        console.warn(`[Database] WARNING: Not connected to Atlas! User cached in memory only: ${user.email}`)
       }
     } catch (err: any) {
-      console.warn('[Database] saveUser error:', err?.message)
+      console.error('[Database] Critical saveUser error in Atlas:', err?.message)
+      throw new Error(`Failed to persist user in MongoDB Atlas: ${err?.message}`)
     }
   }
 
@@ -375,11 +399,59 @@ export class DatabaseStore {
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await CourseModel.findOneAndUpdate({ id: course.id }, course, { upsert: true, new: true })
+        await CourseModel.findOneAndUpdate(
+          { id: course.id },
+          course,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+        console.log(`[Database] Course successfully persisted to Atlas: ${course.code} (${course.id})`)
       }
     } catch (err: any) {
-      console.warn('[Database] saveCourse error:', err?.message)
+      console.error('[Database] Critical saveCourse error in Atlas:', err?.message)
+      throw new Error(`Failed to persist course in MongoDB Atlas: ${err?.message}`)
     }
+  }
+
+  async getMaterialsByCourse(courseId: string): Promise<Material[]> {
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await MaterialModel.find({ courseId }).lean()
+        docs.forEach((m: any) => this.materials.set(m.id, m))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getMaterialsByCourse error:', err?.message)
+    }
+    return Array.from(this.materials.values()).filter((m) => m.courseId === courseId)
+  }
+
+  async getAssignmentsByCourse(courseId: string): Promise<Assignment[]> {
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await AssignmentModel.find({ courseId }).lean()
+        docs.forEach((a: any) => this.assignments.set(a.id, a))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getAssignmentsByCourse error:', err?.message)
+    }
+    return Array.from(this.assignments.values()).filter((a) => a.courseId === courseId)
+  }
+
+  async getSubmissionsByAssignment(assignmentId: string): Promise<Submission[]> {
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await SubmissionModel.find({ assignmentId }).lean()
+        docs.forEach((s: any) => this.submissions.set(s.id, s))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getSubmissionsByAssignment error:', err?.message)
+    }
+    return Array.from(this.submissions.values()).filter((s) => s.assignmentId === assignmentId)
   }
 
   async saveMaterial(mat: Material) {
@@ -387,7 +459,11 @@ export class DatabaseStore {
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await MaterialModel.findOneAndUpdate({ id: mat.id }, mat, { upsert: true, new: true })
+        await MaterialModel.findOneAndUpdate(
+          { id: mat.id },
+          mat,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
       }
     } catch (err: any) {
       console.warn('[Database] saveMaterial error:', err?.message)
@@ -411,7 +487,11 @@ export class DatabaseStore {
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await AssignmentModel.findOneAndUpdate({ id: asg.id }, asg, { upsert: true, new: true })
+        await AssignmentModel.findOneAndUpdate(
+          { id: asg.id },
+          asg,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
       }
     } catch (err: any) {
       console.warn('[Database] saveAssignment error:', err?.message)
@@ -435,7 +515,11 @@ export class DatabaseStore {
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await SubmissionModel.findOneAndUpdate({ id: sub.id }, sub, { upsert: true, new: true })
+        await SubmissionModel.findOneAndUpdate(
+          { id: sub.id },
+          sub,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
       }
     } catch (err: any) {
       console.warn('[Database] saveSubmission error:', err?.message)
@@ -447,7 +531,11 @@ export class DatabaseStore {
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await DoubtModel.findOneAndUpdate({ id: doubt.id }, doubt, { upsert: true, new: true })
+        await DoubtModel.findOneAndUpdate(
+          { id: doubt.id },
+          doubt,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
       }
     } catch (err: any) {
       console.warn('[Database] saveDoubt error:', err?.message)
@@ -459,7 +547,11 @@ export class DatabaseStore {
     try {
       const ok = await ensureConnected()
       if (ok) {
-        await AnnouncementModel.findOneAndUpdate({ id: ann.id }, ann, { upsert: true, new: true })
+        await AnnouncementModel.findOneAndUpdate(
+          { id: ann.id },
+          ann,
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
       }
     } catch (err: any) {
       console.warn('[Database] saveAnnouncement error:', err?.message)

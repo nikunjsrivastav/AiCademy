@@ -15,11 +15,13 @@ function generateCode(): string {
 function enrichCourse(course: Course, currentUserId?: string) {
   const prof = db.users.get(course.professorId)
   const materials = Array.from(db.materials.values()).filter((m) => m.courseId === course.id)
+  const studentIds = Array.isArray(course.studentIds) ? course.studentIds : []
   return {
     ...course,
-    studentCount: course.studentIds.length,
+    studentIds,
+    studentCount: studentIds.length,
     materialCount: materials.length,
-    isEnrolled: currentUserId ? course.studentIds.includes(currentUserId) : false,
+    isEnrolled: currentUserId ? studentIds.includes(currentUserId) : false,
     professor: prof
       ? {
           id: prof.id,
@@ -33,14 +35,15 @@ function enrichCourse(course: Course, currentUserId?: string) {
 
 export async function listCourses(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
+  const allCourses = await db.getAllCourses()
   let courses: Course[] = []
 
   if (user.role === 'administrator') {
-    courses = Array.from(db.courses.values())
+    courses = allCourses
   } else if (user.role === 'professor') {
-    courses = Array.from(db.courses.values()).filter((c) => c.professorId === user.id)
+    courses = allCourses.filter((c) => c.professorId === user.id)
   } else {
-    courses = Array.from(db.courses.values()).filter((c) => c.studentIds.includes(user.id))
+    courses = allCourses.filter((c) => Array.isArray(c.studentIds) && c.studentIds.includes(user.id))
   }
 
   const enriched = courses.map((c) => enrichCourse(c, user.id))
@@ -53,7 +56,8 @@ export async function lookupCourse(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ code: 'INVALID_CODE', message: 'Enrollment code is required' })
   }
 
-  const course = Array.from(db.courses.values()).find((c) => c.enrollmentCode.toUpperCase() === code)
+  const allCourses = await db.getAllCourses()
+  const course = allCourses.find((c) => c.enrollmentCode && c.enrollmentCode.toUpperCase() === code)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'No course found with that enrollment code' })
   }
@@ -63,7 +67,7 @@ export async function lookupCourse(req: AuthenticatedRequest, res: Response) {
 
 export async function getCourse(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Course not found' })
   }
@@ -106,7 +110,7 @@ export async function enrollCourse(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
   const { enrollmentCode } = req.body
 
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }
@@ -115,6 +119,7 @@ export async function enrollCourse(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ code: 'INVALID_ENROLLMENT_CODE', message: 'Incorrect enrollment code' })
   }
 
+  course.studentIds = Array.isArray(course.studentIds) ? course.studentIds : []
   if (course.studentIds.includes(user.id)) {
     return res.status(409).json({ code: 'ALREADY_ENROLLED', message: 'You are already enrolled in this course' })
   }
@@ -126,25 +131,27 @@ export async function enrollCourse(req: AuthenticatedRequest, res: Response) {
 
 export async function getCourseStudents(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Course not found' })
   }
 
-  const students = course.studentIds
-    .map((id) => db.users.get(id))
-    .filter((u): u is NonNullable<typeof u> => !!u)
-    .map((u) => {
+  const studentIds = Array.isArray(course.studentIds) ? course.studentIds : []
+  const students = await Promise.all(
+    studentIds.map(async (id) => {
+      const u = await db.getUser(id)
+      if (!u) return null
       const { passwordHash: _, ...rest } = u
       return rest
     })
+  )
 
-  return res.json(students)
+  return res.json(students.filter(Boolean))
 }
 
 export async function regenerateCode(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Course not found' })
   }
@@ -154,6 +161,7 @@ export async function regenerateCode(req: AuthenticatedRequest, res: Response) {
   }
 
   course.enrollmentCode = generateCode()
+  await db.saveCourse(course)
   return res.json({ enrollmentCode: course.enrollmentCode })
 }
 

@@ -143,9 +143,9 @@ export const ProfessorCourseDetail: React.FC = () => {
         listCourseAssignments(courseId),
       ])
       setCourse(cData)
-      setMaterials(mData)
-      setStudents(sData)
-      setAssignments(aData)
+      setMaterials(Array.isArray(mData) ? mData : [])
+      setStudents(Array.isArray(sData) ? sData : [])
+      setAssignments(Array.isArray(aData) ? aData : [])
       if (aData.length > 0 && !selectedAsg) {
         setSelectedAsg(aData[0])
       }
@@ -351,16 +351,16 @@ export const ProfessorCourseDetail: React.FC = () => {
     }
   }
 
-  const filteredMaterials = materials.filter((m) => {
-    const q = materialSearch.toLowerCase().trim()
+  const filteredMaterials = (materials || []).filter((m) => {
+    const q = (materialSearch || '').toLowerCase().trim()
     if (!q) return true
-    return m.title.toLowerCase().includes(q) || m.fileName.toLowerCase().includes(q)
+    return (m.title || '').toLowerCase().includes(q) || (m.fileName || '').toLowerCase().includes(q)
   })
 
-  const filteredStudents = students.filter((s) => {
-    const q = studentSearch.toLowerCase().trim()
+  const filteredStudents = (students || []).filter((s) => {
+    const q = (studentSearch || '').toLowerCase().trim()
     if (!q) return true
-    return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)
+    return (s.name || '').toLowerCase().includes(q) || (s.email || '').toLowerCase().includes(q)
   })
 
   if (isLoading && !course) {
@@ -524,44 +524,52 @@ export const ProfessorCourseDetail: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {filteredMaterials.map((mat) => (
-              <Card key={mat.id} padding="compact" className="border border-mist flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-[8px] bg-chalk border border-mist shrink-0">
-                    {getFileIcon(mat.type)}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-ink">{mat.title}</h3>
-                      <Badge variant={mat.indexing.status === 'indexed' ? 'success' : 'warning'}>
-                        {mat.indexing.status} ({mat.indexing.chunkCount} chunks)
-                      </Badge>
+            {filteredMaterials.length === 0 ? (
+              <EmptyState
+                icon={<Layers className="w-8 h-8 text-accent" />}
+                title="No Materials Uploaded Yet"
+                description="Upload syllabus documents, lecture slides, or notes. The Ingestion Agent will automatically chunk and vector-index them."
+              />
+            ) : (
+              filteredMaterials.map((mat) => (
+                <Card key={mat.id} padding="compact" className="border border-mist flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-[8px] bg-chalk border border-mist shrink-0">
+                      {getFileIcon(mat.type)}
                     </div>
-                    <p className="text-xs text-slate-500">{mat.fileName} • {formatFileSize(mat.fileSize)}</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-ink">{mat.title}</h3>
+                        <Badge variant={mat.indexing?.status === 'indexed' ? 'success' : 'warning'}>
+                          {mat.indexing?.status || 'indexed'} ({mat.indexing?.chunkCount || 0} chunks)
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-500">{mat.fileName || 'file'} • {formatFileSize(mat.fileSize || 0)}</p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={reindexingIds[mat.id]}
-                    onClick={() => handleReindex(mat.id)}
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${reindexingIds[mat.id] ? 'animate-spin' : ''}`} />
-                    Reindex (Ingestion Agent)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDeleteTarget(mat)}
-                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={reindexingIds[mat.id]}
+                      onClick={() => handleReindex(mat.id)}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${reindexingIds[mat.id] ? 'animate-spin' : ''}`} />
+                      Reindex (Ingestion Agent)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteTarget(mat)}
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -670,12 +678,18 @@ export const ProfessorCourseDetail: React.FC = () => {
                                   <span className="font-bold text-accent">
                                     {sub.aiEvaluation.totalMarks}/{selectedAsg.maxMarks}
                                   </span>
-                                  <ConfidenceBadge
-                                    confidence={{
-                                      score: sub.aiEvaluation.confidence.score,
-                                      level: sub.aiEvaluation.confidence.level,
-                                    }}
-                                  />
+                                  {typeof sub.aiEvaluation.confidence === 'object' && sub.aiEvaluation.confidence !== null ? (
+                                    <ConfidenceBadge
+                                      confidence={{
+                                        score: (sub.aiEvaluation.confidence as any).score ?? 0.9,
+                                        level: (sub.aiEvaluation.confidence as any).level ?? 'high',
+                                      }}
+                                    />
+                                  ) : (
+                                    <Badge variant="success">
+                                      {Math.round((Number(sub.aiEvaluation.confidence) || 0.9) * 100)}% Confidence
+                                    </Badge>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-slate-400">Evaluating...</span>
@@ -743,7 +757,7 @@ export const ProfessorCourseDetail: React.FC = () => {
                   <tr key={s.id} className="hover:bg-chalk/50">
                     <td className="py-3.5 px-4 font-bold text-ink">{s.name}</td>
                     <td className="py-3.5 px-4 font-mono text-slate-500">{s.email}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">{s.profile.studentNumber || '—'}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-500">{s.profile?.studentNumber || '—'}</td>
                     <td className="py-3.5 px-4 text-right">
                       <Badge variant="success">Active</Badge>
                     </td>
@@ -886,7 +900,7 @@ export const ProfessorCourseDetail: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-mist font-mono">
-                {leaderboard?.entries.map((e) => (
+                {(leaderboard?.entries || []).map((e) => (
                   <tr key={e.studentId} className="hover:bg-chalk/50">
                     <td className="py-3 px-4 font-bold text-ink">#{e.rank}</td>
                     <td className="py-3 px-4 font-sans text-ink">{e.studentName}</td>
@@ -1038,12 +1052,18 @@ export const ProfessorCourseDetail: React.FC = () => {
                     <Sparkles className="w-4 h-4 text-accent" />
                     Grader Agent Proposal
                   </span>
-                  <ConfidenceBadge
-                    confidence={{
-                      score: gradingSub.aiEvaluation.confidence.score,
-                      level: gradingSub.aiEvaluation.confidence.level,
-                    }}
-                  />
+                  {typeof gradingSub.aiEvaluation.confidence === 'object' && gradingSub.aiEvaluation.confidence !== null ? (
+                    <ConfidenceBadge
+                      confidence={{
+                        score: (gradingSub.aiEvaluation.confidence as any).score ?? 0.9,
+                        level: (gradingSub.aiEvaluation.confidence as any).level ?? 'high',
+                      }}
+                    />
+                  ) : (
+                    <Badge variant="success">
+                      {Math.round((Number(gradingSub.aiEvaluation.confidence) || 0.9) * 100)}% Confidence
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-slate-700 leading-relaxed font-sans">
                   Proposed Score:{' '}
@@ -1051,8 +1071,8 @@ export const ProfessorCourseDetail: React.FC = () => {
                   . "{gradingSub.aiEvaluation.feedback}"
                 </p>
                 <div className="text-[11px] text-slate-500 space-y-0.5">
-                  <p>• Mistakes: {gradingSub.aiEvaluation.mistakes.join('; ')}</p>
-                  <p>• Suggestions: {gradingSub.aiEvaluation.suggestions.join('; ')}</p>
+                  <p>• Mistakes: {gradingSub.aiEvaluation.mistakes?.join('; ') || 'None'}</p>
+                  <p>• Suggestions: {gradingSub.aiEvaluation.suggestions?.join('; ') || 'None'}</p>
                 </div>
               </div>
             )}

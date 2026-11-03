@@ -13,20 +13,19 @@ export async function askDoubt(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'courseId and question are required' })
   }
 
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }
 
   // Find materials for this course for grounded citations
-  const courseMaterials = Array.from(db.materials.values())
-    .filter((m) => m.courseId === courseId)
-    .map((m) => ({
-      id: m.id,
-      title: m.title,
-      topics: m.indexing.topics,
-      description: m.description,
-    }))
+  const rawMaterials = await db.getMaterialsByCourse(courseId)
+  const courseMaterials = rawMaterials.map((m) => ({
+    id: m.id,
+    title: m.title,
+    topics: m.indexing.topics,
+    description: m.description,
+  }))
 
   // Option A: In-Process Vector Engine retrieval (cosine similarity on chunks)
   const retrievedMatches = vectorEngine.search(courseId, question.trim(), 3)

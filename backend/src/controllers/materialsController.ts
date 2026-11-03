@@ -7,7 +7,7 @@ import { vectorEngine } from '../services/vectorService.js'
 
 export async function listMaterials(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const materials = Array.from(db.materials.values()).filter((m) => m.courseId === courseId)
+  const materials = await db.getMaterialsByCourse(courseId)
   return res.json(materials)
 }
 
@@ -24,7 +24,7 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'courseId is required' })
   }
 
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }

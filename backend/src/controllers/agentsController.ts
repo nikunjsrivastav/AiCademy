@@ -230,7 +230,7 @@ export async function getStudyPlan(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
   const user = req.user!
 
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }
@@ -285,7 +285,7 @@ export async function getStudyPlan(req: AuthenticatedRequest, res: Response) {
 
 export async function getInsights(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }

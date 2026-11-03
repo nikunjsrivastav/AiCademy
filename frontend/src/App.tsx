@@ -49,13 +49,16 @@ const SettingsRedirect: React.FC = () => {
   return <Navigate to={`${prefix}/settings`} replace />
 }
 
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+
 export function App() {
   return (
-    <ThemeProvider>
-      <AccentProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <BrowserRouter>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AccentProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <BrowserRouter>
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
@@ -136,6 +139,7 @@ export function App() {
       </ToastProvider>
       </AccentProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   )
 }
 

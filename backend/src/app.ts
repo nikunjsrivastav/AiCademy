@@ -28,10 +28,11 @@ app.use('/', apiRouter)
 // Health check with live MongoDB diagnostic
 app.get(['/health', '/api/health'], async (_req, res) => {
   await ensureConnected().catch(() => false)
+  const dbStatus = await getMongoStatus()
   res.json({
     status: 'ok',
     service: 'AiCademy API',
-    database: getMongoStatus(),
+    database: dbStatus,
     timestamp: new Date().toISOString(),
     version: '1.0.0',
   })

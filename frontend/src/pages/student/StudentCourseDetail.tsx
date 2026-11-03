@@ -133,8 +133,8 @@ export const StudentCourseDetail: React.FC = () => {
         listCourseAssignments(courseId),
       ])
       setCourse(cData)
-      setMaterials(mData)
-      setAssignments(aData)
+      setMaterials(Array.isArray(mData) ? mData : [])
+      setAssignments(Array.isArray(aData) ? aData : [])
 
       // Fetch student submissions for each assignment
       const subMap: Record<string, Submission | null> = {}
@@ -255,14 +255,14 @@ export const StudentCourseDetail: React.FC = () => {
     }
   }
 
-  const filteredMaterials = materials.filter((m) => {
-    const q = materialSearch.toLowerCase().trim()
+  const filteredMaterials = (materials || []).filter((m) => {
+    const q = (materialSearch || '').toLowerCase().trim()
     if (!q) return true
     return (
-      m.title.toLowerCase().includes(q) ||
-      m.description.toLowerCase().includes(q) ||
-      m.fileName.toLowerCase().includes(q) ||
-      m.indexing.topics.some((t) => t.toLowerCase().includes(q))
+      (m.title || '').toLowerCase().includes(q) ||
+      (m.description || '').toLowerCase().includes(q) ||
+      (m.fileName || '').toLowerCase().includes(q) ||
+      (m.indexing?.topics || []).some((t) => (t || '').toLowerCase().includes(q))
     )
   })
 
@@ -433,7 +433,7 @@ export const StudentCourseDetail: React.FC = () => {
                     <h3 className="text-sm font-bold text-ink">{mat.title}</h3>
                     <p className="text-xs text-slate-500 mt-0.5">{mat.description}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {mat.indexing.topics.map((topic, i) => (
+                      {(mat.indexing?.topics || []).map((topic, i) => (
                         <span key={i} className="text-[11px] px-2 py-0.5 rounded-[4px] bg-chalk text-slate-600 border border-mist font-medium">
                           {topic}
                         </span>
