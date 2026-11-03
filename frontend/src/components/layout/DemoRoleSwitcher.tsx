@@ -6,7 +6,6 @@ import { useToast } from '@/components/ui/Toast'
 import { resetDemoData } from '@/services/demo'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 
 interface DemoAccount {
   name: string
@@ -203,7 +202,6 @@ export const DemoRoleSwitcher: React.FC = () => {
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-accent" />
             <span className="font-semibold text-fg">University Personas</span>
-            <ExtensionTag label="DEMO" />
           </div>
         }
         description="Select any of the 11 pre-seeded university personas across Student, Professor, and Administrator roles."

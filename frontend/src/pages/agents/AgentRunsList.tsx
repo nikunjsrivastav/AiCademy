@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
@@ -106,11 +105,10 @@ export const AgentRunsList: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Agent Control & Runs Trace</h1>
-            <ExtensionTag label="Observability" />
+            <h1 className="text-2xl font-bold text-fg">Agent Control & Runs Trace</h1>
             <AIBadge />
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Audit autonomous tool-using specialist agents, step reasoning, and token consumption.
           </p>
         </div>
@@ -128,8 +126,8 @@ export const AgentRunsList: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <Card padding="compact" className="border border-mist flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+      <Card padding="compact" className="border border-line bg-surface flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted">
           <Filter className="w-4 h-4" />
           Filter By:
         </div>
@@ -137,7 +135,7 @@ export const AgentRunsList: React.FC = () => {
         <select
           value={agentFilter}
           onChange={(e) => setAgentFilter(e.target.value)}
-          className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-1.5 text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+          className="text-xs bg-surface-2 border border-line rounded-[6px] px-3 py-1.5 text-fg focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="all">All Agents</option>
           <option value="orchestrator">Orchestrator</option>
@@ -288,7 +286,7 @@ export const AgentRunsList: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-ink mb-1.5">
-              Simulation Scenario (Decision D15)
+              Simulation Scenario
             </label>
             <select
               value={simulationMode}

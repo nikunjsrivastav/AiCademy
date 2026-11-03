@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -96,7 +95,7 @@ export const ApprovalQueue: React.FC = () => {
       (a) => a.status === 'pending' && (a.confidence ?? 0) >= 0.9
     )
     if (eligible.length === 0) {
-      showToast('No pending items meet the 90%+ confidence threshold for bulk approval (D11).', 'info')
+      showToast('No pending items meet the 90%+ confidence threshold for bulk approval.', 'info')
       return
     }
 
@@ -126,13 +125,11 @@ export const ApprovalQueue: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Human-in-the-Loop Approval Queue</h1>
-            <ExtensionTag label="Governance" />
+            <h1 className="text-2xl font-bold text-fg">Human-in-the-Loop Approval Queue</h1>
             <AIBadge label="Strict Human Gate" />
           </div>
-          <p className="text-sm text-slate-500">
-            Agents propose grades and announcements; human professors accept, override, or reject
-            (Decision D11, D12).
+          <p className="text-sm text-muted">
+            Agents propose grades and announcements; human professors accept, override, or reject.
           </p>
         </div>
 
@@ -150,15 +147,15 @@ export const ApprovalQueue: React.FC = () => {
       </div>
 
       {/* Filter Row */}
-      <Card padding="compact" className="border border-mist flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+      <Card padding="compact" className="border border-line flex flex-wrap gap-4 items-center bg-surface">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted">
           <Filter className="w-4 h-4" />
           Filter Course:
         </div>
         <select
           value={selectedCourse}
           onChange={(e) => setSelectedCourse(e.target.value)}
-          className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-1.5 text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+          className="text-xs bg-surface-2 border border-line rounded-[6px] px-3 py-1.5 text-fg focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="all">All Courses</option>
           {courses.map((c) => (
@@ -168,7 +165,7 @@ export const ApprovalQueue: React.FC = () => {
           ))}
         </select>
 
-        <span className="text-xs text-slate-400 ml-auto font-mono">
+        <span className="text-xs text-muted ml-auto font-mono">
           {pending.length} pending decisions
         </span>
       </Card>
@@ -196,8 +193,8 @@ export const ApprovalQueue: React.FC = () => {
                 key={item.id}
                 className={`rounded-[8px] border transition-all p-5 ${
                   isFlagged
-                    ? 'bg-rose-50/40 border-rose-200'
-                    : 'bg-white border-mist hover:border-accent/30'
+                    ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900'
+                    : 'bg-surface border-line hover:border-accent/40'
                 }`}
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -209,7 +206,7 @@ export const ApprovalQueue: React.FC = () => {
                       <span className="text-xs font-mono font-bold text-accent px-2 py-0.5 bg-accent-soft rounded-[4px]">
                         {item.proposedAction.kind.replace('_', ' ')}
                       </span>
-                      <h3 className="text-sm font-bold text-ink">{item.summary}</h3>
+                      <h3 className="text-sm font-bold text-fg">{item.summary}</h3>
                       {item.confidence !== undefined && (
                         <ConfidenceBadge
                           confidence={{
@@ -226,7 +223,7 @@ export const ApprovalQueue: React.FC = () => {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-500 font-mono">
+                    <p className="text-xs text-muted font-mono">
                       Course: {item.courseId} • Target: {item.proposedAction.targetId} • Requested{' '}
                       {new Date(item.createdAt).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -235,8 +232,8 @@ export const ApprovalQueue: React.FC = () => {
                     </p>
 
                     {/* Proposed Action Payload Preview */}
-                    <div className="mt-2 p-3 rounded-[6px] bg-chalk border border-mist text-xs font-mono text-slate-700 dark:text-slate-300">
-                      <span className="font-semibold text-slate-500 font-sans block mb-1">
+                    <div className="mt-2 p-3 rounded-[6px] bg-surface-2 border border-line text-xs font-mono text-fg">
+                      <span className="font-semibold text-muted font-sans block mb-1">
                         Agent Proposal:
                       </span>
                       {item.proposedAction.kind === 'finalize_grade' ? (
@@ -260,7 +257,7 @@ export const ApprovalQueue: React.FC = () => {
                   <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                     <Link
                       to={`/agents/traces/${item.runId}`}
-                      className="p-2 rounded-[6px] border border-mist text-slate-600 hover:text-accent hover:border-accent text-xs font-medium inline-flex items-center gap-1 transition-colors"
+                      className="p-2 rounded-[6px] border border-line text-muted hover:text-accent hover:border-accent text-xs font-medium inline-flex items-center gap-1 transition-colors"
                       title="Inspect Step-by-Step Agent Trace"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -321,7 +318,7 @@ export const ApprovalQueue: React.FC = () => {
           <div className="space-y-4">
             {activeModal.type === 'edit' && (
               <div>
-                <label className="block text-xs font-semibold text-ink mb-1.5">
+                <label className="block text-xs font-semibold text-fg mb-1.5">
                   Override Marks (out of 100)
                 </label>
                 <input
@@ -330,13 +327,13 @@ export const ApprovalQueue: React.FC = () => {
                   max="100"
                   value={overrideMarks}
                   onChange={(e) => setOverrideMarks(Number(e.target.value))}
-                  className="w-full text-sm bg-chalk border border-mist rounded-[8px] p-2.5 text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                  className="w-full text-sm bg-surface-2 border border-line rounded-[8px] p-2.5 text-fg focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-ink mb-1.5">
+              <label className="block text-xs font-semibold text-fg mb-1.5">
                 {activeModal.type === 'edit'
                   ? 'Final Feedback for Student'
                   : 'Professor Note (Audit Log)'}
@@ -352,7 +349,7 @@ export const ApprovalQueue: React.FC = () => {
                     ? 'State reason for rejecting proposal...'
                     : 'Enter custom feedback and rubric commentary...'
                 }
-                className="w-full text-sm bg-chalk border border-mist rounded-[8px] p-2.5 text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full text-sm bg-surface-2 border border-line rounded-[8px] p-2.5 text-fg focus:outline-none focus:ring-1 focus:ring-accent placeholder:text-muted"
               />
             </div>
 

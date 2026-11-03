@@ -12,7 +12,6 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
@@ -27,7 +26,7 @@ import {
 const AGENT_LIST: { id: AgentName; name: string; desc: string }[] = [
   { id: 'orchestrator', name: 'Orchestrator Agent', desc: 'Event router and multi-agent workflow coordinator.' },
   { id: 'ingestion', name: 'Ingestion Agent', desc: 'Extracts documents, creates vector chunks, and tests retrieval quality.' },
-  { id: 'grader', name: 'Grader Agent', desc: 'Evaluates submissions against rubrics and detects prompt injection (D13).' },
+  { id: 'grader', name: 'Grader Agent', desc: 'Evaluates submissions against rubrics and detects prompt injection.' },
   { id: 'tutor', name: 'Tutor Agent', desc: 'Answers student doubts via agentic RAG with citations and honest refusal.' },
   { id: 'question_quality', name: 'Question Quality Agent', desc: 'Scores clarity and effort of inquiries, providing coaching tips.' },
   { id: 'insights', name: 'Insights Agent', desc: 'Curriculum copilot detecting concept friction and drafting review sessions.' },
@@ -160,12 +159,12 @@ export const AgentControlCenter: React.FC = () => {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-12">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Agent Control Center</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-fg">Agent Control Center</h1>
+          <p className="text-sm text-muted">
             Define course agent activation, provisional feedback visibility, confidence thresholds, and token budgets.
           </p>
         </div>
-        <Card padding="standard" className="border border-mist">
+        <Card padding="standard" className="border border-line bg-surface">
           <EmptyState
             icon={<BookOpen className="w-10 h-10 text-accent" />}
             title="No Courses Found"
@@ -182,11 +181,10 @@ export const AgentControlCenter: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Agent Control Center</h1>
-            <ExtensionTag label="Governance & Safety" />
+            <h1 className="text-2xl font-bold text-fg">Agent Control Center</h1>
             <AIBadge label="Policy Engine" />
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Define course agent activation, provisional feedback visibility, confidence thresholds,
             and token budgets.
           </p>
@@ -196,7 +194,7 @@ export const AgentControlCenter: React.FC = () => {
           <select
             value={courseId}
             onChange={(e) => setCourseId(e.target.value)}
-            className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
+            className="text-xs bg-surface-2 border border-line rounded-[6px] px-3 py-2 text-fg font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
           >
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
@@ -220,14 +218,14 @@ export const AgentControlCenter: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {/* Autonomy & Safety Settings Card */}
-          <Card padding="standard" className="border border-mist space-y-6">
+          <Card padding="standard" className="border border-line bg-surface space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-ink flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-base font-bold text-fg flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   Human-in-the-Loop & Feedback Policies
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                   Enforce strict ethical boundaries and determine when AI operates autonomously.
                 </p>
               </div>
@@ -235,9 +233,9 @@ export const AgentControlCenter: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
               {/* Auto Publish Feedback Toggle */}
-              <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-2">
+              <div className="p-4 rounded-[8px] bg-surface-2 border border-line space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-ink">Auto-Publish Student Feedback</span>
+                  <span className="text-sm font-bold text-fg">Auto-Publish Student Feedback</span>
                   <input
                     type="checkbox"
                     checked={policy.autoPublish}
@@ -247,17 +245,16 @@ export const AgentControlCenter: React.FC = () => {
                     className="w-4 h-4 text-accent rounded focus:ring-accent"
                   />
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  <span className="font-semibold text-ink">Decision D12:</span> Shows provisional AI
-                  evaluation comments to students immediately, labeled "Pending Professor Approval".
+                <p className="text-xs text-muted leading-relaxed">
+                  Shows provisional AI evaluation comments to students immediately, labeled "Pending Professor Approval".
                   Final numeric marks are strictly withheld until professor approval.
                 </p>
               </div>
 
               {/* Confidence Threshold Slider */}
-              <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-2">
+              <div className="p-4 rounded-[8px] bg-surface-2 border border-line space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-ink">Approval Confidence Threshold</span>
+                  <span className="text-sm font-bold text-fg">Approval Confidence Threshold</span>
                   <Badge variant="brand">{(((policy.confidenceThreshold ?? 0.85)) * 100).toFixed(0)}%</Badge>
                 </div>
                 <input
@@ -271,20 +268,19 @@ export const AgentControlCenter: React.FC = () => {
                   }
                   className="w-full accent-accent"
                 />
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  <span className="font-semibold text-ink">Decision D11:</span> Submissions graded with
-                  confidence below this threshold are routed to the human approval queue. Bulk approval
+                <p className="text-xs text-muted leading-relaxed">
+                  Submissions graded with confidence below this threshold are routed to the human approval queue. Bulk approval
                   requires &ge; 90%.
                 </p>
               </div>
             </div>
 
             {/* Token Budget Meter */}
-            <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-3">
+            <div className="p-4 rounded-[8px] bg-surface-2 border border-line space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-sm font-bold text-ink">Daily Course Token Budget (D14)</span>
-                  <p className="text-xs text-slate-500">
+                  <span className="text-sm font-bold text-fg">Daily Course Token Budget</span>
+                  <p className="text-xs text-muted">
                     Controls daily LLM token consumption to prevent unexpected API costs.
                   </p>
                 </div>
@@ -293,7 +289,7 @@ export const AgentControlCenter: React.FC = () => {
                   {(policy.dailyTokenBudget || 500000).toLocaleString()} tokens
                 </span>
               </div>
-              <div className="w-full bg-mist/60 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-surface-3 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-accent h-full transition-all duration-300"
                   style={{
@@ -308,13 +304,13 @@ export const AgentControlCenter: React.FC = () => {
           </Card>
 
           {/* Specialist Agent Toggles */}
-          <Card padding="standard" className="border border-mist space-y-4">
+          <Card padding="standard" className="border border-line bg-surface space-y-4">
             <div>
-              <h3 className="text-base font-bold text-ink flex items-center gap-2">
+              <h3 className="text-base font-bold text-fg flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-accent" />
-                Active Agent Services (Decision D14)
+                Active Agent Services
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 Enable or disable individual agent pipelines for this course.
               </p>
             </div>
@@ -325,14 +321,14 @@ export const AgentControlCenter: React.FC = () => {
                 return (
                   <div
                     key={agent.id}
-                    className="p-3.5 rounded-[8px] bg-chalk border border-mist flex items-start justify-between gap-4 hover:border-accent/40 transition-colors"
+                    className="p-3.5 rounded-[8px] bg-surface-2 border border-line flex items-start justify-between gap-4 hover:border-accent/40 transition-colors"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <Bot className="w-4 h-4 text-accent shrink-0" />
-                        <span className="text-sm font-bold text-ink">{agent.name}</span>
+                        <span className="text-sm font-bold text-fg">{agent.name}</span>
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed">{agent.desc}</p>
+                      <p className="text-xs text-muted leading-relaxed">{agent.desc}</p>
                     </div>
 
                     <input

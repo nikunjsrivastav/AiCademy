@@ -12,7 +12,6 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { useToast } from '@/components/ui/Toast'
 import {
   Zap,
@@ -115,11 +114,10 @@ export const EventSimulator: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Orchestrator Event Simulator</h1>
-            <ExtensionTag label="B6 Triggers" />
+            <h1 className="text-2xl font-bold text-fg">Orchestrator Event Simulator</h1>
             <AIBadge label="Multi-Agent Pipeline" />
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Dispatch asynchronous domain events to observe autonomous Orchestrator routing and specialist pipelines.
           </p>
         </div>
@@ -178,7 +176,7 @@ export const EventSimulator: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-ink mb-1.5">
-              Simulation Scenario (Decision D15)
+              Simulation Scenario
             </label>
             <select
               value={simulationMode}

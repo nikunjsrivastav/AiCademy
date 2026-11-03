@@ -122,7 +122,7 @@ export const CommandPalette: React.FC = () => {
     {
       id: 'memory',
       title: 'Agent Memory Transparency',
-      subtitle: 'Inspect and delete adaptive memory profiles (D16)',
+      subtitle: 'Inspect and delete adaptive memory profiles',
       category: 'Settings',
       icon: <Bot className="w-4 h-4 text-accent" />,
       path: `${prefix}/memory`,

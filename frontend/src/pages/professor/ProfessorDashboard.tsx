@@ -17,7 +17,6 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { AutonomyBadge } from '@/components/ui/AutonomyBadge'
 import { Skeleton } from '@/components/ui/Skeleton'
 
@@ -159,7 +158,6 @@ export const ProfessorDashboard: React.FC = () => {
                 </div>
                 <CardTitle>Approval Queue</CardTitle>
               </div>
-              <ExtensionTag />
             </CardHeader>
             <p className="text-xs text-charcoal mb-6 leading-relaxed">
               Review AI criterion scores, override marks, and approve agent-drafted course announcements.
@@ -203,7 +201,6 @@ export const ProfessorDashboard: React.FC = () => {
                 </div>
                 <CardTitle>Agent Control</CardTitle>
               </div>
-              <ExtensionTag />
             </CardHeader>
             <p className="text-xs text-charcoal mb-6 leading-relaxed">
               Configure agent autonomy, token budgets, and grading confidence thresholds per course.

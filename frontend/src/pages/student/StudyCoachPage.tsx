@@ -11,7 +11,6 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
@@ -109,7 +108,7 @@ export const StudyCoachPage: React.FC = () => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    showToast('AiCademy_Study_Sprint.ics downloaded. Added to your calendar (D16).', 'success')
+    showToast('AiCademy_Study_Sprint.ics downloaded. Added to your calendar.', 'success')
   }
 
   if (coursesLoading) {
@@ -125,12 +124,12 @@ export const StudyCoachPage: React.FC = () => {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-12">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Personalized Study Coach</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-fg">Personalized Study Coach</h1>
+          <p className="text-sm text-muted">
             Autonomous study plans tailored to upcoming assignment deadlines and concept mastery gaps.
           </p>
         </div>
-        <Card padding="standard" className="border border-mist">
+        <Card padding="standard" className="border border-line bg-surface">
           <EmptyState
             icon={<Compass className="w-10 h-10 text-accent" />}
             title="No Enrolled Courses Found"
@@ -147,11 +146,10 @@ export const StudyCoachPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Personalized Study Coach</h1>
-            <ExtensionTag label="Study Coach Agent" />
+            <h1 className="text-2xl font-bold text-fg">Personalized Study Coach</h1>
             <AIBadge label="Proactive AI Guidance" />
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Autonomous study plans tailored to upcoming assignment deadlines and concept mastery gaps.
           </p>
         </div>
@@ -159,7 +157,7 @@ export const StudyCoachPage: React.FC = () => {
         <select
           value={courseId}
           onChange={(e) => setCourseId(e.target.value)}
-          className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
+          className="text-xs bg-surface-2 border border-line rounded-[6px] px-3 py-2 text-fg font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
           {courses.map((c) => (
             <option key={c.id} value={c.id}>

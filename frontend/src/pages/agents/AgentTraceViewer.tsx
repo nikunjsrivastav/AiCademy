@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AutonomyBadge } from '@/components/ui/AutonomyBadge'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { ErrorState } from '@/components/ui/ErrorState'
 import {
@@ -124,7 +123,6 @@ export const AgentTraceViewer: React.FC = () => {
           Back
         </button>
         <div className="flex items-center gap-2">
-          <ExtensionTag label="Agent Trace" />
           <AIBadge label="Inspectable Reasoning" />
         </div>
       </div>
@@ -180,7 +178,7 @@ export const AgentTraceViewer: React.FC = () => {
               <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                  Human Approval Required (Decision D12)
+                  Human Approval Required
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-300">
                   This run proposes an action affecting grades or course announcements. Agent
@@ -242,7 +240,7 @@ export const AgentTraceViewer: React.FC = () => {
           <p className="text-lg font-bold text-ink">
             ${run.usage.estimatedCostUsd.toFixed(5)}
           </p>
-          <span className="text-xs text-amber-600 font-medium">Estimated (D14)</span>
+          <span className="text-xs text-amber-600 font-medium">Estimated</span>
         </Card>
 
         <Card padding="compact" className="border border-mist">

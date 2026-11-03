@@ -402,7 +402,7 @@ export const StudentCourseDetail: React.FC = () => {
           }`}
         >
           <Award className="w-4 h-4" />
-          Leaderboard (D3)
+          Leaderboard
         </button>
       </div>
 
@@ -466,7 +466,7 @@ export const StudentCourseDetail: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-fg">Course Assignments & Evaluations</h2>
               <p className="text-xs text-muted">
-                Submit work in PDF, DOCX, TXT, or ZIP up to 10MB (D10). Graded via autonomous Rubric Grader Agent.
+                Submit work in PDF, DOCX, TXT, or ZIP up to 10MB. Graded via autonomous Rubric Grader Agent.
               </p>
             </div>
           </div>
@@ -491,7 +491,7 @@ export const StudentCourseDetail: React.FC = () => {
                         {isGraded ? (
                           <Badge variant="success">Graded ({sub?.marks}/{asg.maxMarks})</Badge>
                         ) : isPendingReview ? (
-                          <Badge variant="warning">AI Review Pending (D12)</Badge>
+                          <Badge variant="warning">AI Review Pending</Badge>
                         ) : isSubmitted ? (
                           <Badge variant="info">Evaluating...</Badge>
                         ) : (
@@ -573,7 +573,7 @@ export const StudentCourseDetail: React.FC = () => {
                         <div className="p-3 bg-amber-50/50 rounded-[6px] border border-amber-200 text-xs text-amber-900 space-y-1">
                           <span className="font-bold flex items-center gap-1">
                             <Sparkles className="w-3.5 h-3.5 text-accent" />
-                            Provisional AI Evaluation: {sub.aiEvaluation?.totalMarks || 85} / {asg.maxMarks} (Pending Professor Approval D12)
+                            Provisional AI Evaluation: {sub.aiEvaluation?.totalMarks || 85} / {asg.maxMarks} (Pending Professor Approval)
                           </span>
                           <p>{sub.aiEvaluation?.feedback || 'Your work has been extracted and reviewed against the rubric. Official marks will post once approved by Dr. Rao.'}</p>
                         </div>
@@ -788,18 +788,18 @@ export const StudentCourseDetail: React.FC = () => {
 
       {/* TAB 5: LEADERBOARD */}
       {activeTab === 'leaderboard' && (
-        <Card padding="standard" className="border border-mist space-y-4">
+        <Card padding="standard" className="border border-line bg-surface space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-ink flex items-center gap-2">
+              <h3 className="text-base font-bold text-fg flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
-                Course Rankings (Decision D3)
+                Course Rankings
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 50% assignments + 30% projects + 20% doubt inquiry quality.
               </p>
             </div>
-            <span className="text-xs font-mono text-slate-400">
+            <span className="text-xs font-mono text-muted">
               Snapshot: {leaderboard ? new Date(leaderboard.computedAt).toLocaleDateString() : 'Today'}
             </span>
           </div>
@@ -858,7 +858,7 @@ export const StudentCourseDetail: React.FC = () => {
                 {selectedFile ? selectedFile.name : 'Click to select or drag and drop your file'}
               </p>
               <p className="text-[11px] text-muted mt-1">
-                Supported formats: PDF, DOCX, TXT, ZIP up to 10 MB (Decision D10)
+                Supported formats: PDF, DOCX, TXT, ZIP up to 10 MB
               </p>
               <input
                 ref={fileInputRef}

@@ -479,7 +479,7 @@ export const ProfessorCourseDetail: React.FC = () => {
           }`}
         >
           <BarChart2 className="w-4 h-4" />
-          Analytics (Section 5.4)
+          Analytics
         </button>
 
         <button
@@ -499,7 +499,7 @@ export const ProfessorCourseDetail: React.FC = () => {
           }`}
         >
           <Award className="w-4 h-4" />
-          Leaderboard (D3)
+          Leaderboard
         </button>
       </div>
 
@@ -661,7 +661,7 @@ export const ProfessorCourseDetail: React.FC = () => {
                             <th className="py-3 px-4 font-semibold">Student</th>
                             <th className="py-3 px-4 font-semibold">File / Version</th>
                             <th className="py-3 px-4 font-semibold">Submitted At</th>
-                            <th className="py-3 px-4 font-semibold">AI Evaluation (D9)</th>
+                            <th className="py-3 px-4 font-semibold">AI Evaluation</th>
                             <th className="py-3 px-4 font-semibold">Final Grade</th>
                             <th className="py-3 px-4 font-semibold text-right">Actions</th>
                           </tr>
@@ -710,7 +710,7 @@ export const ProfessorCourseDetail: React.FC = () => {
                                   {isGraded ? (
                                     <span className="text-emerald-600 dark:text-emerald-400">{sub.marks}/{selectedAsg.maxMarks}</span>
                                   ) : (
-                                    <Badge variant="warning">Awaiting Review (D12)</Badge>
+                                    <Badge variant="warning">Awaiting Review</Badge>
                                   )}
                                 </td>
                                 <td className="py-3.5 px-4 text-right">
@@ -819,7 +819,7 @@ export const ProfessorCourseDetail: React.FC = () => {
                 </Card>
 
                 <Card padding="compact" className="border border-line bg-surface">
-                  <span className="text-xs font-semibold text-muted block mb-1">AI Score Override Rate (D9)</span>
+                  <span className="text-xs font-semibold text-muted block mb-1">AI Score Override Rate</span>
                   <p className="text-2xl font-bold text-fg">{analytics.overrideRate}%</p>
                   <span className="text-xs text-accent font-medium">Faculty human alignment</span>
                 </Card>
@@ -921,7 +921,7 @@ export const ProfessorCourseDetail: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-fg flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
-                Course Rankings Snapshot (Decision D3)
+                Course Rankings Snapshot
               </h3>
               <p className="text-xs text-muted">
                 Formula: 50% Assignments + 30% Projects + 20% Doubt Quality
@@ -982,7 +982,7 @@ export const ProfessorCourseDetail: React.FC = () => {
         <Modal
           isOpen={true}
           onClose={() => setIsCreateAsgOpen(false)}
-          title="Create Assignment with Rubric (Section 5.3 + D2)"
+          title="Create Assignment with Rubric"
           description="Configure rubric criteria with point allocations summing to assignment total."
         >
           <form onSubmit={handleCreateAssignment} className="space-y-4">
@@ -1000,7 +1000,7 @@ export const ProfessorCourseDetail: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-fg mb-1">Classification (D2)</label>
+                <label className="block text-xs font-semibold text-fg mb-1">Classification</label>
                 <select
                   value={asgClass}
                   onChange={(e) => setAsgClass(e.target.value as any)}
@@ -1263,7 +1263,7 @@ export const ProfessorCourseDetail: React.FC = () => {
                 {selectedFile ? selectedFile.name : 'Click to select material document'}
               </p>
               <p className="text-[11px] text-muted mt-1">
-                PDF, DOCX, PPTX, TXT, or MD up to 20MB (Decision D10)
+                PDF, DOCX, PPTX, TXT, or MD up to 20MB
               </p>
               <input
                 ref={fileInputRef}

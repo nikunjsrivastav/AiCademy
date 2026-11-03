@@ -263,8 +263,8 @@ export async function getStudyPlan(req: AuthenticatedRequest, res: Response) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }
 
-  const materials = Array.from(db.materials.values()).filter((m) => m.courseId === courseId)
-  const assignments = Array.from(db.assignments.values()).filter((a) => a.courseId === courseId)
+  const materials = await db.getMaterialsByCourse(courseId)
+  const assignments = await db.getAssignmentsByCourse(courseId)
 
   if (materials.length === 0 && assignments.length === 0) {
     return res.json({
@@ -318,8 +318,8 @@ export async function getInsights(req: AuthenticatedRequest, res: Response) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }
 
-  const doubts = Array.from(db.doubts.values()).filter((d) => d.courseId === courseId)
-  const materials = Array.from(db.materials.values()).filter((m) => m.courseId === courseId)
+  const doubts = await db.getDoubtsByCourse(courseId)
+  const materials = await db.getMaterialsByCourse(courseId)
 
   if (doubts.length === 0) {
     return res.json({
@@ -336,13 +336,13 @@ export async function getInsights(req: AuthenticatedRequest, res: Response) {
   const frequentDoubts = doubts.slice(-3).map((d) => ({
     question: d.question,
     count: 1,
-    qualityScore: d.quality.score,
+    qualityScore: d.quality?.score || 80,
   }))
 
   return res.json({
     courseId,
     generatedAt: new Date().toISOString(),
-    weakTopic: materials[0]?.indexing.topics[0] || 'Core Concepts',
+    weakTopic: materials[0]?.indexing?.topics?.[0] || 'Core Concepts',
     dropPercentage: 14,
     observation: `Students have asked ${doubts.length} questions regarding recent topics. Review suggested before upcoming deadlines.`,
     frequentDoubts,

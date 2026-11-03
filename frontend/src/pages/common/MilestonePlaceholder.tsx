@@ -4,7 +4,6 @@ import { ArrowLeft, Bot, Construction } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { useAuth } from '@/auth/AuthContext'
 import { getRoleHome } from '@/auth/RoleGuard'
 
@@ -21,7 +20,6 @@ export const MilestonePlaceholder: React.FC<MilestonePlaceholderProps> = ({
   milestone,
   description,
   agentName,
-  isExtension = false,
 }) => {
   const { user } = useAuth()
   const home = getRoleHome(user?.role)
@@ -38,7 +36,6 @@ export const MilestonePlaceholder: React.FC<MilestonePlaceholderProps> = ({
             <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-[4px] bg-accent-soft text-accent border border-accent/20">
               {milestone}
             </span>
-            {isExtension && <ExtensionTag />}
             {agentName && <AIBadge label={agentName} />}
           </div>
           <h2 className="text-xl font-bold text-fg tracking-tight font-sans">{title}</h2>

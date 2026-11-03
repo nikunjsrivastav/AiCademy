@@ -23,7 +23,6 @@ import {
 import { useAuth } from '@/auth/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 
 interface NavEntry {
   to: string
@@ -213,7 +212,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               <span className="truncate">{link.label}</span>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              {link.extension && <ExtensionTag className="text-[8px] px-1" />}
               {link.badge}
             </div>
           </NavLink>

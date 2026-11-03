@@ -12,7 +12,6 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
@@ -94,7 +93,7 @@ export const InsightsCopilot: React.FC = () => {
           'Based on recent student inquiries, we will hold an interactive review session this week. Bring your questions!',
       })
       setPublished(true)
-      showToast('Announcement published directly to course stream (D7).', 'success')
+      showToast('Announcement published directly to course stream.', 'success')
     } catch {
       showToast('Failed to publish announcement.', 'error')
     } finally {
@@ -137,8 +136,7 @@ export const InsightsCopilot: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Teaching Insights Copilot</h1>
-            <ExtensionTag label="Insights Agent" />
+            <h1 className="text-2xl font-bold text-fg">Teaching Insights Copilot</h1>
             <AIBadge label="Autonomous Curriculum Coach" />
           </div>
           <p className="text-sm text-slate-500">

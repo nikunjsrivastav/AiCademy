@@ -19,7 +19,6 @@ import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { useToast } from '@/components/ui/Toast'
 import { errorMessage } from '@/services/http'
 
@@ -261,7 +260,6 @@ export const StudentCourses: React.FC = () => {
           <div className="flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-accent" />
             <span>Enroll in Course</span>
-            <ExtensionTag />
           </div>
         }
         description="Enter the 6-character alphanumeric enrollment code provided by your course professor."

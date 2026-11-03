@@ -11,7 +11,6 @@ import type { Course } from '@/types/domain'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
@@ -82,7 +81,7 @@ export const AgentMemoryViewer: React.FC = () => {
   const handleDelete = async (memoryId: string) => {
     try {
       await deleteAgentMemory(memoryId)
-      showToast('Agent memory removed per your privacy request (D16).', 'success')
+      showToast('Agent memory removed per your privacy request.', 'success')
       fetchMemories()
     } catch {
       showToast('Could not remove memory.', 'error')
@@ -102,12 +101,12 @@ export const AgentMemoryViewer: React.FC = () => {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-12">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Agent Memory Transparency</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-fg">Agent Memory Transparency</h1>
+          <p className="text-sm text-muted">
             Audit agent-remembered learning traits, weak concepts, and feedback tone guidelines.
           </p>
         </div>
-        <Card padding="standard" className="border border-mist">
+        <Card padding="standard" className="border border-line bg-surface">
           <EmptyState
             icon={<BookOpen className="w-10 h-10 text-accent" />}
             title="No Courses Available"
@@ -128,20 +127,19 @@ export const AgentMemoryViewer: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold text-ink">Agent Memory Transparency</h1>
-            <ExtensionTag label="Inspectable State" />
+            <h1 className="text-2xl font-bold text-fg">Agent Memory Transparency</h1>
             <AIBadge label="Privacy-Preserving" />
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Audit agent-remembered learning traits, weak concepts, and feedback tone guidelines.
-            You have the right to delete your memory entries (Decision D16).
+            You have the right to inspect and delete your personal memory entries at any time.
           </p>
         </div>
 
         <select
           value={courseId}
           onChange={(e) => setCourseId(e.target.value)}
-          className="text-xs bg-chalk border border-mist rounded-[6px] px-3 py-2 text-ink font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
+          className="text-xs bg-surface-2 border border-line rounded-[6px] px-3 py-2 text-fg font-semibold focus:outline-none focus:ring-1 focus:ring-accent"
         >
           {courses.map((c) => (
             <option key={c.id} value={c.id}>
@@ -155,7 +153,7 @@ export const AgentMemoryViewer: React.FC = () => {
       <div className="p-4 rounded-[8px] bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 flex items-start gap-3">
         <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
         <div className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-          <span className="font-bold">Principle of Transparent Memory (B4, D16):</span> Agents
+          <span className="font-bold">Principle of Transparent Memory:</span> Agents
           cannot delete data, but humans retain full ownership over their memory profiles. Deleting
           a memory entry instructs agents to re-evaluate concepts without historical priors.
         </div>
@@ -175,17 +173,17 @@ export const AgentMemoryViewer: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {memories.map((mem) => (
-            <Card key={mem.id} padding="standard" className="border border-mist">
+            <Card key={mem.id} padding="standard" className="border border-line bg-surface">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-mono font-bold px-2 py-0.5 bg-accent-soft text-accent rounded-[4px]">
                       {mem.scope || (mem as any).category || 'course'}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-muted">
                       Agent: {mem.sourceAgent || 'orchestrator'}
                     </span>
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs text-muted font-mono">
                       {mem.updatedAt
                         ? new Date(mem.updatedAt).toLocaleDateString()
                         : (mem as any).createdAt
@@ -194,8 +192,8 @@ export const AgentMemoryViewer: React.FC = () => {
                     </span>
                   </div>
 
-                  <p className="text-sm font-semibold text-ink">{mem.key}</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">{mem.value}</p>
+                  <p className="text-sm font-semibold text-fg">{mem.key}</p>
+                  <p className="text-xs text-muted leading-relaxed">{mem.value}</p>
                 </div>
 
                 <Button

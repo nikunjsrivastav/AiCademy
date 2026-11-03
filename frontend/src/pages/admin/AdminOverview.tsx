@@ -14,7 +14,6 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { AIBadge } from '@/components/ui/AIBadge'
-import { ExtensionTag } from '@/components/ui/ExtensionTag'
 
 export const AdminOverview: React.FC = () => {
   const { user } = useAuth()
@@ -28,7 +27,6 @@ export const AdminOverview: React.FC = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-accent px-2.5 py-1 rounded-[6px] bg-accent-soft border border-accent/20">
               Platform Administration (Read-Only)
             </span>
-            <ExtensionTag label="MONITOR" />
           </div>
           <h2 className="text-2xl md:text-3xl font-bold font-sans text-fg tracking-tight">
             AiCademy System Console · {user?.name}
@@ -84,7 +82,6 @@ export const AdminOverview: React.FC = () => {
           value="$14.20"
           subValue="Token Economics (GPT-4o)"
           icon={<Cpu className="w-5 h-5 text-accent" />}
-          badge={<ExtensionTag label="ESTIMATE" />}
         />
       </div>
 
@@ -99,7 +96,6 @@ export const AdminOverview: React.FC = () => {
                 </div>
                 <CardTitle>Event Simulator</CardTitle>
               </div>
-              <ExtensionTag />
             </CardHeader>
             <p className="text-xs text-charcoal mb-6 leading-relaxed">
               Dispatch autonomous lifecycle events like <code>material.uploaded</code> or <code>submission.created</code> to trigger orchestrated agent workflows.
