@@ -182,54 +182,49 @@ async function extractTextFromPdf(
     return pypdfRes
   }
 
-  // Tier 2: Enhanced 2D Spatial Layout Reconstruction via unpdf
+  // Tier 2: Universal in-process PDF.js (unpdf) text extraction
   let mergedText = ''
   const pages: ExtractedPage[] = []
   let pageCount = 1
 
   try {
     const unpdf = await getUnpdf()
-    if (unpdf) {
-      const uint8 = new Uint8Array(buffer)
+    if (unpdf && typeof unpdf.extractText === 'function') {
+      const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      const uint8 = new Uint8Array(ab)
 
-      // Use extractTextItems for 2D spatial word and line reconstruction
-      if (typeof unpdf.extractTextItems === 'function') {
-        const itemResult = await unpdf.extractTextItems(uint8)
-        pageCount = itemResult.totalPages || (itemResult.items ? itemResult.items.length : 1)
-        const rawPagesItems = Array.isArray(itemResult.items) ? itemResult.items : []
+      const result = await unpdf.extractText(uint8, { mergePages: false })
+      const rawPages = Array.isArray(result.text) ? result.text : [result.text]
+      pageCount = result.totalPages || rawPages.length || 1
 
-        rawPagesItems.forEach((pageItems: any[], i: number) => {
-          const reconstructed = reconstructPageFromItems(pageItems)
-          if (reconstructed) {
-            pages.push({ pageNumber: i + 1, text: reconstructed })
-          }
-        })
-        mergedText = pages.map((p) => p.text).join('\n\n').trim()
-      }
+      rawPages.forEach((pText: any, i: number) => {
+        const cleaned = (typeof pText === 'string' ? pText : '').trim()
+        if (cleaned) {
+          pages.push({ pageNumber: i + 1, text: cleaned })
+        }
+      })
+      mergedText = pages.map((p) => p.text).join('\n\n').trim()
 
-      // Also check standard extractText to see if it yields richer text coverage
-      if (typeof unpdf.extractText === 'function') {
+      // Optional: try layout reconstruction if extractText returned little text
+      if (mergedText.split(/\s+/).filter(Boolean).length < 5 && typeof unpdf.extractTextItems === 'function') {
         try {
-          const result = await unpdf.extractText(uint8, { mergePages: false })
-          const rawPages = Array.isArray(result.text) ? result.text : [result.text]
-          const altPages: ExtractedPage[] = []
-          rawPages.forEach((pText: any, i: number) => {
-            const cleaned = (typeof pText === 'string' ? pText : '').trim()
-            if (cleaned) {
-              altPages.push({ pageNumber: i + 1, text: cleaned })
+          const itemResult = await unpdf.extractTextItems(uint8)
+          const rawPagesItems = Array.isArray(itemResult.items) ? itemResult.items : []
+          const layoutPages: ExtractedPage[] = []
+          rawPagesItems.forEach((pageItems: any[], i: number) => {
+            const reconstructed = reconstructPageFromItems(pageItems)
+            if (reconstructed) {
+              layoutPages.push({ pageNumber: i + 1, text: reconstructed })
             }
           })
-          const altText = altPages.map((p) => p.text).join('\n\n').trim()
-          const altWordCount = altText.split(/\s+/).filter(Boolean).length
-          const curWordCount = mergedText.split(/\s+/).filter(Boolean).length
-          if (altWordCount > curWordCount) {
-            mergedText = altText
+          const layoutText = layoutPages.map((p) => p.text).join('\n\n').trim()
+          if (layoutText.length > mergedText.length) {
+            mergedText = layoutText
             pages.length = 0
-            pages.push(...altPages)
-            pageCount = result.totalPages || altPages.length || pageCount
+            pages.push(...layoutPages)
           }
-        } catch (altErr) {
-          console.warn('[Extraction] unpdf extractText secondary check:', altErr)
+        } catch {
+          // Ignore items structuredClone warnings; extractText is already used
         }
       }
     }
@@ -237,8 +232,8 @@ async function extractTextFromPdf(
     console.warn('[Extraction] unpdf primary extraction warning:', unpdfErr)
   }
 
-  // Tier 3: Resilient fallback: Inflate zlib content streams directly
-  if (!mergedText || mergedText.split(/\s+/).filter(Boolean).length < 20) {
+  // Tier 3: Resilient fallback: Inflate zlib content streams directly (Tj/TJ/hex strings)
+  if (!mergedText || mergedText.split(/\s+/).filter(Boolean).length < 5) {
     const streamRes = extractFromPdfFlateStreams(buffer)
     if (streamRes.text.length > mergedText.length) {
       mergedText = streamRes.text
@@ -317,21 +312,6 @@ function extractFromPdfFlateStreams(buffer: Buffer): { text: string; pageCount: 
       const hexStr = h.replace(/^[<]/, '').replace(/[>]\s*T[jJ]$/, '').replace(/\s+/g, '')
       const decodedHex = decodeHexPdfString(hexStr)
       if (decodedHex.trim()) combinedText += decodedHex + ' '
-    }
-  }
-
-  // Fallback to printable ascii if streams were encrypted or non-standard
-  if (combinedText.trim().length < 30) {
-    const readable = str
-      .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-    const cleaned = readable
-      .split(' ')
-      .filter((w) => !w.startsWith('/') && !w.startsWith('obj') && !w.startsWith('endobj') && w.length < 40)
-      .join(' ')
-    if (cleaned.length > 30) {
-      combinedText = cleaned
     }
   }
 

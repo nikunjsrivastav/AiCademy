@@ -11,3 +11,4 @@ from scripts.evaluate_submission import evaluate_submission_pipeline, main
 
 if __name__ == "__main__":
     main()
+

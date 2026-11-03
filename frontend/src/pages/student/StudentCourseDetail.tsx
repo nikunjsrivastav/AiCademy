@@ -106,7 +106,6 @@ export const StudentCourseDetail: React.FC = () => {
   const [uploadModalAsg, setUploadModalAsg] = useState<Assignment | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSubmittingWork, setIsSubmittingWork] = useState(false)
-  const [submissionProgress, setSubmissionProgress] = useState(0)
   const [submissionStage, setSubmissionStage] = useState('')
   const [evaluatedResult, setEvaluatedResult] = useState<Submission | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -182,47 +181,40 @@ export const StudentCourseDetail: React.FC = () => {
     }
   }, [doubts, activeTab])
 
-  // Submission handler with live progress & thorough evaluation
+  // Submission handler with real-time evaluation (zero fake timers)
   const handleUploadWork = async () => {
     if (!uploadModalAsg || !selectedFile) return
     setIsSubmittingWork(true)
     setEvaluatedResult(null)
-    setSubmissionProgress(20)
-    setSubmissionStage('Extracting document text, formulas, and LaTeX CMaps...')
+    setSubmissionStage('Extracting document text and analyzing with AI evaluator...')
 
     try {
-      // 1. Kick off upload and evaluation promise
-      const uploadPromise = uploadSubmission(uploadModalAsg.id, {
+      // 1. If text or code file, read text directly in browser as immediate payload
+      let directText = ''
+      const ext = selectedFile.name.split('.').pop()?.toLowerCase() || ''
+      const isTextFile = ['txt', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'md', 'json', 'sql', 'html', 'css'].includes(ext)
+      if (isTextFile) {
+        try {
+          directText = await selectedFile.text()
+        } catch (readErr) {
+          console.warn('Direct client text read warning:', readErr)
+        }
+      }
+
+      // 2. Perform live upload and evaluation directly without any hardcoded delay
+      const res = await uploadSubmission(uploadModalAsg.id, {
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
         file: selectedFile,
+        submissionContent: directText || undefined,
       })
 
-      // Step through evaluation stages smoothly
-      await new Promise((r) => setTimeout(r, 800))
-      setSubmissionProgress(45)
-      setSubmissionStage('Querying syllabus RAG index & aligning rubric criteria...')
-
-      await new Promise((r) => setTimeout(r, 900))
-      setSubmissionProgress(75)
-      setSubmissionStage('Professor Eleanor Vance evaluating technical proofs, invariants, & logic...')
-
-      await new Promise((r) => setTimeout(r, 800))
-      setSubmissionProgress(92)
-      setSubmissionStage('Synthesizing criteria breakdown, mistake analysis, & suggestions...')
-
-      const res = await uploadPromise
-
-      await new Promise((r) => setTimeout(r, 400))
-      setSubmissionProgress(100)
-      setSubmissionStage('Comprehensive evaluation complete!')
       setSubmissions((prev) => ({ ...prev, [uploadModalAsg.id]: res }))
       setEvaluatedResult(res)
       showToast('Assignment evaluated successfully against rubric benchmarks!', 'success')
     } catch (err) {
       showToast(errorMessage(err), 'error')
       setIsSubmittingWork(false)
-      setSubmissionProgress(0)
     }
   }
 
@@ -876,7 +868,6 @@ export const StudentCourseDetail: React.FC = () => {
               setSelectedFile(null)
               setEvaluatedResult(null)
               setIsSubmittingWork(false)
-              setSubmissionProgress(0)
             }}
             title={`Evaluation Report: ${uploadModalAsg.title}`}
             description={`Evaluated against course rubric benchmarks • ${evaluatedResult.fileName}`}
@@ -1006,7 +997,6 @@ export const StudentCourseDetail: React.FC = () => {
                     setSelectedFile(null)
                     setEvaluatedResult(null)
                     setIsSubmittingWork(false)
-                    setSubmissionProgress(0)
                   }}
                 >
                   Done
@@ -1033,17 +1023,16 @@ export const StudentCourseDetail: React.FC = () => {
                 </p>
               </div>
 
-              {/* Animated Loading Progress Bar */}
+              {/* Real indeterminate active inspection indicator */}
               <div className="space-y-1.5">
-                <div className="w-full bg-surface-2 rounded-full h-3 overflow-hidden border border-line">
-                  <div
-                    className="bg-accent h-full transition-all duration-500 ease-out rounded-full"
-                    style={{ width: `${submissionProgress}%` }}
-                  />
+                <div className="w-full bg-surface-2 rounded-full h-2.5 overflow-hidden border border-line">
+                  <div className="bg-accent h-full w-2/5 rounded-full animate-[pulse_1.2s_ease-in-out_infinite] mx-auto" />
                 </div>
                 <div className="flex justify-between text-[11px] font-mono text-muted">
-                  <span>Analyzing {selectedFile?.name}</span>
-                  <span>{submissionProgress}%</span>
+                  <span>Processing {selectedFile?.name}</span>
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-accent animate-spin" /> Live Pipeline
+                  </span>
                 </div>
               </div>
 

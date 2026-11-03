@@ -72,11 +72,11 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     }
   }
 
-  // Direct UTF-8 buffer decoding fallback for text, scripts, and source files
+  // Direct UTF-8 buffer decoding fallback for text, scripts, and source files (non-PDF)
   if ((!submissionContent || submissionContent.length < 5) && fileBuffer && fileBuffer.length > 0) {
     try {
       const directText = fileBuffer.toString('utf-8').trim()
-      if (directText.length > 0) {
+      if (directText.length > 0 && !directText.startsWith('%PDF')) {
         submissionContent = directText
         console.log(`[Submissions] Used direct UTF-8 buffer decoding (${submissionContent.length} chars) for ${originalName}`)
       }

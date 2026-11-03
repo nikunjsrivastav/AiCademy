@@ -39,6 +39,12 @@ http.interceptors.request.use((config) => {
   const token = tokenStorage.get()
   if (token) config.headers.set('Authorization', `Bearer ${token}`)
   config.headers.set('X-Request-Id', newRequestId())
+
+  // If payload is FormData, remove Content-Type so browser sets 'multipart/form-data; boundary=...' automatically
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    config.headers.delete('Content-Type')
+  }
+
   return config
 })
 
