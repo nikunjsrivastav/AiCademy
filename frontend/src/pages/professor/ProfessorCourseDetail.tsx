@@ -1023,7 +1023,8 @@ export const ProfessorCourseDetail: React.FC = () => {
           isOpen={true}
           onClose={() => setIsCreateAsgOpen(false)}
           title="Create Assignment with Rubric"
-          description="Configure rubric criteria with point allocations summing to assignment total."
+          description="Configure question specifications and rubric criteria summing to assignment total."
+          size="lg"
         >
           <form onSubmit={handleCreateAssignment} className="space-y-4">
             <div>
@@ -1182,7 +1183,7 @@ export const ProfessorCourseDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-3 flex justify-end gap-2 border-t border-line">
+            <div className="sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 sm:p-6 bg-surface/95 dark:bg-surface/90 backdrop-blur-md flex justify-end gap-2 border-t border-line mt-4 z-10 shadow-sm">
               <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateAsgOpen(false)}>
                 Cancel
               </Button>

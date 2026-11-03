@@ -51,7 +51,7 @@ export const Modal: React.FC<ModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
     >
       {/* Backdrop */}
       <div
@@ -63,14 +63,14 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={contentRef}
         className={clsx(
-          'relative w-full rounded-2xl bg-surface/95 dark:bg-surface/90 backdrop-blur-2xl border border-line/80 dark:border-white/15 shadow-[0_24px_64px_rgba(0,0,0,0.25)] overflow-hidden flex flex-col z-10 animate-slide-up',
+          'relative w-full max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] rounded-2xl bg-surface/95 dark:bg-surface/90 backdrop-blur-2xl border border-line/80 dark:border-white/15 shadow-[0_24px_64px_rgba(0,0,0,0.25)] overflow-hidden flex flex-col z-10 animate-slide-up',
           sizes[size],
           className,
         )}
       >
         {/* Header */}
         {(title || description) && (
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-line">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-line shrink-0">
             <div>
               {typeof title === 'string' ? (
                 <h3 className="text-base font-semibold text-fg tracking-tight">{title}</h3>
@@ -91,7 +91,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">{children}</div>
       </div>
     </div>
   )
