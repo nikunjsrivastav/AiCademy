@@ -1,7 +1,8 @@
 import type { Response } from 'express'
 import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
-import type { Doubt, SourceCitation, QuestionQuality } from '../types/index.js'
+import type { Doubt } from '../types/index.js'
+import { askTutorWithAI, scoreQuestionQualityWithAI } from '../services/aiService.js'
 
 export async function askDoubt(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
@@ -17,54 +18,33 @@ export async function askDoubt(req: AuthenticatedRequest, res: Response) {
   }
 
   // Find materials for this course for grounded citations
-  const courseMaterials = Array.from(db.materials.values()).filter((m) => m.courseId === courseId)
+  const courseMaterials = Array.from(db.materials.values())
+    .filter((m) => m.courseId === courseId)
+    .map((m) => ({
+      id: m.id,
+      title: m.title,
+      topics: m.indexing.topics,
+      description: m.description,
+    }))
 
-  const isOutOfScope = /weather|movie|recipe|celebrity|football/i.test(question)
-
-  let answer = ''
-  let citations: SourceCitation[] = []
-
-  if (isOutOfScope) {
-    answer = `I am your AI course tutor for ${course.code}: ${course.name}. This inquiry falls outside the indexed curriculum and course materials. Please ask questions related to our syllabus or consult Professor Rao.`
-  } else {
-    answer = `Based on the course materials for ${course.code}, here is the explanation: `
-    if (courseMaterials.length > 0) {
-      const topMat = courseMaterials[0]
-      answer += `Regarding "${question.trim()}", the core concept involves structured principles defined in ${topMat.title}. When balancing or traversing nodes, the tree invariants guarantee logarithmic bounds O(log N).`
-      citations.push({
-        materialId: topMat.id,
-        materialTitle: topMat.title,
-        pageNumber: 3,
-        snippet: 'The balance factor of any node in an AVL tree is defined as the height difference between left and right subtrees: BF = height(left) - height(right). Invariants require |BF| <= 1.',
-        similarity: 0.94,
-      })
-    } else {
-      answer += `The theoretical foundation requires verifying structural invariants and computational complexity constraints as defined in the lecture syllabus.`
-    }
-  }
-
-  // Question Quality Scoring (B1.4)
-  const len = question.trim().length
-  const clarity = Math.min(10, Math.max(5, Math.floor(len / 8)))
-  const specificity = question.includes('?') && len > 20 ? 9 : 7
-  const effort = len > 30 ? 9 : 6
-  const qualityScore = Math.round(((clarity + specificity + effort) / 30) * 100)
-
-  const quality: QuestionQuality = {
-    score: qualityScore,
-    clarity,
-    specificity,
-    effort,
-    feedback: qualityScore >= 80 ? 'Excellent question formulation with clear focus!' : 'Good inquiry. Try adding specific examples or constraints for deeper assistance.',
-  }
+  // Generate answer and citations via Groq (with heuristic fallback)
+  const [tutorRes, quality] = await Promise.all([
+    askTutorWithAI({
+      courseCode: course.code,
+      courseName: course.name,
+      question: question.trim(),
+      materials: courseMaterials,
+    }),
+    scoreQuestionQualityWithAI(question.trim()),
+  ])
 
   const doubt: Doubt = {
     id: `doubt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     courseId,
     studentId: user.id,
     question: question.trim(),
-    answer,
-    citations,
+    answer: tutorRes.answer,
+    citations: tutorRes.citations,
     quality,
     createdAt: new Date().toISOString(),
   }

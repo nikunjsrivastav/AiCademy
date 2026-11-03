@@ -1,7 +1,8 @@
 import type { Response } from 'express'
 import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
-import type { Submission, AiEvaluation } from '../types/index.js'
+import type { Submission } from '../types/index.js'
+import { evaluateSubmissionWithAI } from '../services/aiService.js'
 
 export async function uploadSubmission(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
@@ -35,25 +36,13 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
   )
   const version = existing.length + 1
 
-  // Simulated AI Evaluation
-  const max = assignment.maxMarks || 100
-  const randomScore = Math.floor(max * 0.82 + Math.random() * (max * 0.16))
-  const aiEval: AiEvaluation = {
-    marks: randomScore,
-    maxMarks: max,
-    confidence: 0.88,
-    reasoning: 'Automated evaluation against rubric criteria. Code implementation is structured cleanly with correct syntax.',
-    criterionScores: assignment.rubricCriteria.map((c) => ({
-      criterionId: c.id,
-      criterionName: c.name,
-      score: Math.round((c.maxScore * randomScore) / max),
-      maxScore: c.maxScore,
-      reasoning: `Meets expected performance on ${c.name}.`,
-    })),
-    mistakes: ['Minor formatting or edge case logic can be tightened.'],
-    suggestions: ['Add comprehensive unit tests covering non-standard inputs.'],
-    evaluatedAt: now.toISOString(),
-  }
+  // Evaluate via Groq (with heuristic fallback)
+  const aiEval = await evaluateSubmissionWithAI({
+    assignmentTitle: assignment.title,
+    rubricCriteria: assignment.rubricCriteria,
+    maxMarks: assignment.maxMarks || 100,
+    submissionFileName: originalName,
+  })
 
   const submission: Submission = {
     id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
