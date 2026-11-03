@@ -187,43 +187,39 @@ export const StudentCourseDetail: React.FC = () => {
     if (!uploadModalAsg || !selectedFile) return
     setIsSubmittingWork(true)
     setEvaluatedResult(null)
-    setSubmissionProgress(18)
-    setSubmissionStage('Extracting document text, topics, and structures from file...')
-
-    const t1 = setTimeout(() => {
-      setSubmissionProgress(45)
-      setSubmissionStage('Extracting key concepts & querying syllabus RAG vector index...')
-    }, 800)
-
-    const t2 = setTimeout(() => {
-      setSubmissionProgress(75)
-      setSubmissionStage('Rubric Grader Agent evaluating technical correctness, logic, & test assertions...')
-    }, 1800)
-
-    const t3 = setTimeout(() => {
-      setSubmissionProgress(92)
-      setSubmissionStage('Synthesizing criteria scores, pinpointing mistakes, and recommendations...')
-    }, 3000)
+    setSubmissionProgress(20)
+    setSubmissionStage('Extracting document text, formulas, and LaTeX CMaps...')
 
     try {
-      const res = await uploadSubmission(uploadModalAsg.id, {
+      // 1. Kick off upload and evaluation promise
+      const uploadPromise = uploadSubmission(uploadModalAsg.id, {
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
         file: selectedFile,
       })
 
-      clearTimeout(t1)
-      clearTimeout(t2)
-      clearTimeout(t3)
+      // Step through evaluation stages smoothly
+      await new Promise((r) => setTimeout(r, 800))
+      setSubmissionProgress(45)
+      setSubmissionStage('Querying syllabus RAG index & aligning rubric criteria...')
+
+      await new Promise((r) => setTimeout(r, 900))
+      setSubmissionProgress(75)
+      setSubmissionStage('Professor Eleanor Vance evaluating technical proofs, invariants, & logic...')
+
+      await new Promise((r) => setTimeout(r, 800))
+      setSubmissionProgress(92)
+      setSubmissionStage('Synthesizing criteria breakdown, mistake analysis, & suggestions...')
+
+      const res = await uploadPromise
+
+      await new Promise((r) => setTimeout(r, 400))
       setSubmissionProgress(100)
-      setSubmissionStage('Evaluation complete!')
+      setSubmissionStage('Comprehensive evaluation complete!')
       setSubmissions((prev) => ({ ...prev, [uploadModalAsg.id]: res }))
       setEvaluatedResult(res)
       showToast('Assignment evaluated successfully against rubric benchmarks!', 'success')
     } catch (err) {
-      clearTimeout(t1)
-      clearTimeout(t2)
-      clearTimeout(t3)
       showToast(errorMessage(err), 'error')
       setIsSubmittingWork(false)
       setSubmissionProgress(0)
