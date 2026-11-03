@@ -3,6 +3,7 @@ import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Material, MaterialType } from '../types/index.js'
 import { uploadFileToStorage } from '../services/storageService.js'
+import { vectorEngine } from '../services/vectorService.js'
 
 export async function listMaterials(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
@@ -78,6 +79,16 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
   }
 
   await db.saveMaterial(newMaterial)
+
+  // Index into embedded in-process vector engine (Option A)
+  vectorEngine.indexMaterial(
+    courseId,
+    newMaterial.id,
+    newMaterial.title,
+    newMaterial.indexing.topics,
+    description
+  )
+
   return res.status(201).json(newMaterial)
 }
 
@@ -93,6 +104,9 @@ export async function deleteMaterial(req: AuthenticatedRequest, res: Response) {
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Only course professor can delete materials' })
   }
 
+  // Remove from in-process vector engine
+  vectorEngine.removeMaterial(material.courseId, materialId)
+
   await db.deleteMaterial(materialId)
   return res.json({ success: true, message: 'Material deleted successfully' })
 }
@@ -106,6 +120,16 @@ export async function reindexMaterial(req: AuthenticatedRequest, res: Response) 
 
   material.indexing.status = 'indexed'
   material.indexing.lastIndexedAt = new Date().toISOString()
+
+  // Re-index into embedded vector engine
+  vectorEngine.indexMaterial(
+    material.courseId,
+    material.id,
+    material.title,
+    material.indexing.topics,
+    material.description
+  )
+
   return res.json(material)
 }
 

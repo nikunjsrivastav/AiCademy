@@ -3,6 +3,7 @@ import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Doubt } from '../types/index.js'
 import { askTutorWithAI, scoreQuestionQualityWithAI } from '../services/aiService.js'
+import { vectorEngine } from '../services/vectorService.js'
 
 export async function askDoubt(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
@@ -27,6 +28,16 @@ export async function askDoubt(req: AuthenticatedRequest, res: Response) {
       description: m.description,
     }))
 
+  // Option A: In-Process Vector Engine retrieval (cosine similarity on chunks)
+  const retrievedMatches = vectorEngine.search(courseId, question.trim(), 3)
+  const retrievedChunks = retrievedMatches.map((m) => ({
+    materialId: m.chunk.materialId,
+    materialTitle: m.chunk.materialTitle,
+    pageNumber: m.chunk.pageNumber,
+    text: m.chunk.text,
+    similarity: m.similarity,
+  }))
+
   // Generate answer and citations via Groq (with heuristic fallback)
   const [tutorRes, quality] = await Promise.all([
     askTutorWithAI({
@@ -34,6 +45,7 @@ export async function askDoubt(req: AuthenticatedRequest, res: Response) {
       courseName: course.name,
       question: question.trim(),
       materials: courseMaterials,
+      retrievedChunks,
     }),
     scoreQuestionQualityWithAI(question.trim()),
   ])
