@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, File, UploadFile
+import os
+import tempfile
 
 try:
     from app.models import (
@@ -72,4 +74,45 @@ def score_quality(req: ScoreDoubtQualityRequest):
         return score_doubt_quality(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/convert-docling")
+async def convert_docling(file: UploadFile = File(...)):
+    """
+    IBM Docling document conversion endpoint.
+    Converts academic PDFs, LaTeX documents, and formulas into pristine structured Markdown.
+    """
+    tmp_path = None
+    try:
+        # Dynamically import docling so service still boots if docling is not pre-installed
+        from docling.document_converter import DocumentConverter
+
+        suffix = os.path.splitext(file.filename or "doc.pdf")[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            tmp_path = tmp.name
+
+        converter = DocumentConverter()
+        conv_res = converter.convert(tmp_path)
+        markdown = conv_res.document.export_to_markdown()
+
+        return {
+            "success": True,
+            "text": markdown,
+            "format": "markdown",
+            "pageCount": len(conv_res.document.pages) if hasattr(conv_res.document, "pages") else 1
+        }
+    except ImportError:
+        raise HTTPException(
+            status_code=501,
+            detail="Docling is not installed in the python environment. Run: pip install docling"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Docling conversion failed: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
 

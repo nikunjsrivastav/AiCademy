@@ -28,6 +28,7 @@ if (typeof (globalThis as any).ImageData === 'undefined') {
 }
 
 import zlib from 'node:zlib'
+import { config } from '../config/index.js'
 
 // Lazy dynamic ESM loader to prevent ERR_REQUIRE_ESM in CommonJS serverless runtimes
 let unpdfModulePromise: Promise<typeof import('unpdf') | null> | null = null
@@ -62,40 +63,186 @@ export interface ExtractedDocument {
 }
 
 /**
- * Universal Serverless-Safe PDF Text Extractor.
- * Uses Mozilla PDF.js core via `unpdf` to decode all font dictionaries,
- * LaTeX ToUnicode CMaps, subset fonts, and mathematical symbols word-by-word.
- * Dynamically imported to comply with CommonJS runtime restrictions on Vercel.
- * Zero native binary dependencies, zero canvas, zero DOMMatrix.
+ * Tier 1: IBM Docling Document Conversion Integration.
+ * Calls Docling Serve or ai-service to convert complex academic PDFs, LaTeX equations,
+ * and multi-column layouts into structured Markdown.
  */
-async function extractTextFromPdf(buffer: Buffer): Promise<{ text: string; pages: ExtractedPage[]; pageCount: number }> {
+async function extractWithDoclingService(
+  buffer: Buffer,
+  fileName: string
+): Promise<{ text: string; pages: ExtractedPage[]; pageCount: number } | null> {
+  const targetUrl = config.doclingApiUrl || (config.aiServiceUrl ? `${config.aiServiceUrl.replace(/\/+$/, '')}/convert-docling` : null)
+  if (!targetUrl) return null
+
+  try {
+    const isDoclingServe = targetUrl.includes(':5001') || targetUrl.includes('/v1')
+    const endpoint = isDoclingServe ? `${targetUrl.replace(/\/+$/, '')}/v1/convert/file` : targetUrl
+
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' })
+    formData.append('file', blob, fileName)
+    formData.append('files', blob, fileName) // supports both Docling Serve ('files') and ai-service ('file')
+    formData.append('to_formats', 'md')
+
+    const headers: Record<string, string> = {}
+    if (process.env.DOCLING_API_KEY) {
+      headers['X-Api-Key'] = process.env.DOCLING_API_KEY
+    }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      body: formData,
+      headers,
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    if (!resp.ok) {
+      console.warn(`[Docling] HTTP ${resp.status} from ${endpoint}`)
+      return null
+    }
+
+    const data: any = await resp.json()
+    const markdown = data?.text || data?.document?.export_to_markdown || data?.markdown || ''
+    if (markdown && markdown.trim().length > 20) {
+      console.log(`[Docling] Pristine conversion complete for ${fileName} (${markdown.length} chars)`)
+      const pageSplits = markdown.split(/<!--\s*page\s*(\d+)\s*-->/i)
+      const pages: ExtractedPage[] = []
+      if (pageSplits.length > 2) {
+        for (let i = 1; i < pageSplits.length; i += 2) {
+          const pNum = parseInt(pageSplits[i], 10) || Math.floor(i / 2) + 1
+          pages.push({ pageNumber: pNum, text: pageSplits[i + 1]?.trim() || '' })
+        }
+      } else {
+        pages.push({ pageNumber: 1, text: markdown.trim() })
+      }
+      return {
+        text: markdown.trim(),
+        pages,
+        pageCount: data?.pageCount || pages.length || 1,
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[Docling] Service connection unavailable (${err?.message || err}), using layout-reconstructed in-process engine`)
+  }
+  return null
+}
+
+/**
+ * 2D Spatial Layout Reconstruction Algorithm:
+ * Converts raw PDF text glyphs/tokens with X,Y positions into natural,
+ * correctly spaced sentences, equations, and paragraphs.
+ * Solves the LaTeX word-gluing issue where spaces are represented by horizontal gaps rather than space characters.
+ */
+function reconstructPageFromItems(items: any[]): string {
+  if (!items || items.length === 0) return ''
+
+  const valid = items.filter((it) => it && typeof it.str === 'string' && it.str.trim() !== '')
+  if (valid.length === 0) return ''
+
+  // Sort primarily by Y descending (top of page to bottom), then X ascending (left to right)
+  const sorted = [...valid].sort((a, b) => {
+    const yDiff = Math.abs(a.y - b.y)
+    if (yDiff > 3) return b.y - a.y
+    return a.x - b.x
+  })
+
+  let pageText = ''
+  let prev: any = null
+
+  for (const it of sorted) {
+    const str = it.str
+    if (!prev) {
+      pageText += str
+    } else {
+      const isNewLine = Math.abs(it.y - prev.y) > 3.5 || prev.hasEOL
+      if (isNewLine) {
+        const verticalGap = Math.abs(it.y - prev.y)
+        const isParagraph = verticalGap > (prev.height || 10) * 1.6
+        pageText += (isParagraph ? '\n\n' : '\n') + str
+      } else {
+        const prevEnd = prev.x + (prev.width || 0)
+        const gap = it.x - prevEnd
+        if (gap > 1.2 && !pageText.endsWith(' ') && !str.startsWith(' ')) {
+          pageText += ' ' + str
+        } else {
+          pageText += str
+        }
+      }
+    }
+    prev = it
+  }
+
+  return pageText.trim()
+}
+
+/**
+ * Multi-Tier PDF Text & Formula Extractor:
+ * Tier 1: IBM Docling (REST API / ai-service) for pristine academic LaTeX & tables
+ * Tier 2: 2D Spatial Layout Reconstruction via `unpdf` extractTextItems & CMap decoding
+ * Tier 3: Pure Node.js `node:zlib` Flate stream inflation & Tj/TJ text extraction
+ */
+async function extractTextFromPdf(
+  buffer: Buffer,
+  fileName: string = 'document.pdf'
+): Promise<{ text: string; pages: ExtractedPage[]; pageCount: number }> {
+  // Tier 1: Try IBM Docling (via Docling Serve or ai-service)
+  const doclingRes = await extractWithDoclingService(buffer, fileName)
+  if (doclingRes && doclingRes.text.length > 30) {
+    return doclingRes
+  }
+
+  // Tier 2: Enhanced 2D Spatial Layout Reconstruction via unpdf
   let mergedText = ''
   const pages: ExtractedPage[] = []
   let pageCount = 1
 
   try {
     const unpdf = await getUnpdf()
-    if (unpdf && typeof unpdf.extractText === 'function') {
+    if (unpdf) {
       const uint8 = new Uint8Array(buffer)
-      // extractText from unpdf processes the full PDF structure including LaTeX font CMaps
-      const result = await unpdf.extractText(uint8, { mergePages: false })
-      const rawPages = Array.isArray(result.text) ? result.text : [result.text]
-      pageCount = result.totalPages || rawPages.length || 1
 
-      rawPages.forEach((pText: any, i: number) => {
-        const cleaned = (typeof pText === 'string' ? pText : '').trim()
-        if (cleaned) {
-          pages.push({ pageNumber: i + 1, text: cleaned })
+      // Use extractTextItems for 2D spatial word and line reconstruction
+      if (typeof unpdf.extractTextItems === 'function') {
+        const itemResult = await unpdf.extractTextItems(uint8)
+        pageCount = itemResult.totalPages || (itemResult.items ? itemResult.items.length : 1)
+        const rawPagesItems = Array.isArray(itemResult.items) ? itemResult.items : []
+
+        rawPagesItems.forEach((pageItems: any[], i: number) => {
+          const reconstructed = reconstructPageFromItems(pageItems)
+          if (reconstructed) {
+            pages.push({ pageNumber: i + 1, text: reconstructed })
+          }
+        })
+        mergedText = pages.map((p) => p.text).join('\n\n').trim()
+      }
+
+      // If items extraction yielded little text, fall back to extractText
+      if (!mergedText || mergedText.split(/\s+/).filter(Boolean).length < 20) {
+        if (typeof unpdf.extractText === 'function') {
+          const result = await unpdf.extractText(uint8, { mergePages: false })
+          const rawPages = Array.isArray(result.text) ? result.text : [result.text]
+          pageCount = result.totalPages || rawPages.length || pageCount
+
+          pages.length = 0
+          rawPages.forEach((pText: any, i: number) => {
+            const cleaned = (typeof pText === 'string' ? pText : '').trim()
+            if (cleaned) {
+              pages.push({ pageNumber: i + 1, text: cleaned })
+            }
+          })
+          mergedText = pages.map((p) => p.text).join('\n\n').trim()
         }
-      })
-
-      mergedText = pages.map((p) => p.text).join('\n\n').trim()
+      }
     }
   } catch (unpdfErr) {
     console.warn('[Extraction] unpdf primary extraction warning:', unpdfErr)
   }
 
-  // Resilient secondary fallback: Inflate zlib content streams directly
+  // Tier 3: Resilient fallback: Inflate zlib content streams directly
   if (!mergedText || mergedText.split(/\s+/).filter(Boolean).length < 20) {
     const streamRes = extractFromPdfFlateStreams(buffer)
     if (streamRes.text.length > mergedText.length) {
@@ -220,7 +367,7 @@ export async function extractTextFromBuffer(
 
   try {
     if (ext === 'pdf' || mimeType?.includes('pdf')) {
-      const pdfRes = await extractTextFromPdf(buffer)
+      const pdfRes = await extractTextFromPdf(buffer, fileName)
       text = pdfRes.text
       pages = pdfRes.pages
       pageCount = pdfRes.pageCount

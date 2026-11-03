@@ -374,9 +374,9 @@ Return ONLY a valid JSON object matching this schema:
             content: `STUDENT SUBMISSION EVALUATION REQUEST:
 File: ${submissionFileName}
 
-Submission Content / Extracted Text:
+Submission Content / Extracted Text (Docling & CMap Decoded):
 """
-${submissionContent.slice(0, 10000)}
+${submissionContent.slice(0, 40000)}
 """`,
           },
         ],
@@ -389,26 +389,42 @@ ${submissionContent.slice(0, 10000)}
         ? Math.min(maxMarks, Math.max(0, Math.round(parsed.marks)))
         : Math.round(maxMarks * 0.85)
 
+      let scoredCriteria: any[] = []
+      if (Array.isArray(parsed.criterionScores) && parsed.criterionScores.length > 0) {
+        scoredCriteria = parsed.criterionScores.map((cs: any, idx: number) => {
+          const matchCrit = rubricCriteria.find((r) => r.id === cs.criterionId) || rubricCriteria[idx]
+          const critMax = matchCrit ? matchCrit.maxScore : (cs.maxScore || 10)
+          const rawScore = Number(cs.score)
+          const validScore = isNaN(rawScore) ? Math.round(critMax * 0.75) : Math.min(critMax, Math.max(0, Math.round(rawScore)))
+          return {
+            criterionId: matchCrit ? matchCrit.id : (cs.criterionId || `crit_${idx + 1}`),
+            criterionName: matchCrit ? matchCrit.name : (cs.criterionName || `Criterion ${idx + 1}`),
+            score: validScore,
+            maxScore: critMax,
+            reasoning: cs.reasoning || `Assessed against ${matchCrit ? matchCrit.name : 'rubric standard'}.`,
+          }
+        })
+      } else {
+        scoredCriteria = rubricCriteria.map((c) => ({
+          criterionId: c.id,
+          criterionName: c.name,
+          score: Math.min(c.maxScore, Math.max(0, Math.round(c.maxScore * (totalAwarded / Math.max(1, maxMarks))))),
+          maxScore: c.maxScore,
+          reasoning: `Demonstrates acceptable comprehension of ${c.name} in accordance with course notes.`,
+        }))
+      }
+
+      // Mathematical consistency: Reconcile total marks with criterion scores sum
+      const sumCriteria = scoredCriteria.reduce((sum, c) => sum + c.score, 0)
+      const maxPossible = scoredCriteria.reduce((sum, c) => sum + c.maxScore, 0)
+      const reconciledMarks = maxPossible > 0 ? Math.min(maxMarks, Math.round((sumCriteria / maxPossible) * maxMarks)) : totalAwarded
+
       return {
-        marks: totalAwarded,
+        marks: reconciledMarks,
         maxMarks,
-        confidence: typeof parsed.confidence === 'number' ? Math.min(1.0, Math.max(0.5, parsed.confidence)) : 0.92,
+        confidence: typeof parsed.confidence === 'number' ? Math.min(1.0, Math.max(0.5, parsed.confidence)) : 0.94,
         reasoning: parsed.reasoning || `Comprehensive evaluation completed against course syllabus standards for ${assignmentTitle}.`,
-        criterionScores: (parsed.criterionScores && parsed.criterionScores.length > 0)
-          ? parsed.criterionScores.map((cs: any) => ({
-              criterionId: cs.criterionId,
-              criterionName: cs.criterionName,
-              score: Math.min(cs.maxScore || 10, Math.max(0, Number(cs.score) || 0)),
-              maxScore: cs.maxScore || 10,
-              reasoning: cs.reasoning || 'Evaluated against curriculum benchmark.',
-            }))
-          : rubricCriteria.map((c) => ({
-              criterionId: c.id,
-              criterionName: c.name,
-              score: Math.round(c.maxScore * (totalAwarded / maxMarks)),
-              maxScore: c.maxScore,
-              reasoning: `Demonstrates acceptable comprehension of ${c.name} in accordance with course notes.`,
-            })),
+        criterionScores: scoredCriteria,
         mistakes: Array.isArray(parsed.mistakes) && parsed.mistakes.length > 0
           ? parsed.mistakes
           : ['Ensure boundary conditions and non-trivial edge cases are explicitly asserted.'],
@@ -488,25 +504,30 @@ ${submissionContent.slice(0, 10000)}
     suggestionsList.push('Optimal complexity achieved; consider profiling memory allocations.')
   }
 
-  const calcMarks = Math.round(maxMarks * finalRatio)
+  const criterionScores = rubricCriteria.map((c, i) => {
+    // Differential criterion scoring: severely penalize first criterion if flawed
+    const critRatio = isSeverelyFlawed && i === 0 ? 0.3 : finalRatio
+    return {
+      criterionId: c.id,
+      criterionName: c.name,
+      score: Math.min(c.maxScore, Math.max(0, Math.round(c.maxScore * critRatio))),
+      maxScore: c.maxScore,
+      reasoning: isSeverelyFlawed && i === 0
+        ? `Critical flaws and errors detected in ${c.name} requirements.`
+        : `Demonstrates ${Math.round(critRatio * 100)}% benchmark alignment for ${c.name}.`,
+    }
+  })
+
+  const sumCrit = criterionScores.reduce((acc, c) => acc + c.score, 0)
+  const maxCrit = criterionScores.reduce((acc, c) => acc + c.maxScore, 0)
+  const calcMarks = maxCrit > 0 ? Math.min(maxMarks, Math.round((sumCrit / maxCrit) * maxMarks)) : Math.round(maxMarks * finalRatio)
+
   return {
     marks: calcMarks,
     maxMarks,
     confidence: finalRatio >= 0.8 ? 0.94 : 0.82,
     reasoning,
-    criterionScores: rubricCriteria.map((c, i) => {
-      // Differential criterion scoring: severely penalize first criterion if flawed
-      const critRatio = isSeverelyFlawed && i === 0 ? 0.3 : finalRatio
-      return {
-        criterionId: c.id,
-        criterionName: c.name,
-        score: Math.round(c.maxScore * critRatio),
-        maxScore: c.maxScore,
-        reasoning: isSeverelyFlawed && i === 0
-          ? `Flaws detected in ${c.name} requirements.`
-          : `Demonstrates ${Math.round(critRatio * 100)}% benchmark alignment for ${c.name}.`,
-      }
-    }),
+    criterionScores,
     mistakes: mistakesList,
     suggestions: suggestionsList,
     promptInjectionSuspected: false,
