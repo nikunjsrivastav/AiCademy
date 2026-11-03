@@ -420,6 +420,23 @@ export class DatabaseStore {
     }
   }
 
+  async getMaterial(id: string): Promise<Material | undefined> {
+    if (this.materials.has(id)) return this.materials.get(id)
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await MaterialModel.findOne({ id }).lean()
+        if (doc) {
+          this.materials.set(doc.id, doc as any)
+          return doc as any
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Database] getMaterial error:', err?.message)
+    }
+    return undefined
+  }
+
   async getMaterialsByCourse(courseId: string): Promise<Material[]> {
     try {
       const ok = await ensureConnected()
@@ -432,6 +449,23 @@ export class DatabaseStore {
       console.warn('[Database] getMaterialsByCourse error:', err?.message)
     }
     return Array.from(this.materials.values()).filter((m) => m.courseId === courseId)
+  }
+
+  async getAssignment(id: string): Promise<Assignment | undefined> {
+    if (this.assignments.has(id)) return this.assignments.get(id)
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await AssignmentModel.findOne({ id }).lean()
+        if (doc) {
+          this.assignments.set(doc.id, doc as any)
+          return doc as any
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Database] getAssignment error:', err?.message)
+    }
+    return undefined
   }
 
   async getAssignmentsByCourse(courseId: string): Promise<Assignment[]> {
@@ -448,6 +482,23 @@ export class DatabaseStore {
     return Array.from(this.assignments.values()).filter((a) => a.courseId === courseId)
   }
 
+  async getSubmission(id: string): Promise<Submission | undefined> {
+    if (this.submissions.has(id)) return this.submissions.get(id)
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await SubmissionModel.findOne({ id }).lean()
+        if (doc) {
+          this.submissions.set(doc.id, doc as any)
+          return doc as any
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Database] getSubmission error:', err?.message)
+    }
+    return undefined
+  }
+
   async getSubmissionsByAssignment(assignmentId: string): Promise<Submission[]> {
     try {
       const ok = await ensureConnected()
@@ -460,6 +511,65 @@ export class DatabaseStore {
       console.warn('[Database] getSubmissionsByAssignment error:', err?.message)
     }
     return Array.from(this.submissions.values()).filter((s) => s.assignmentId === assignmentId)
+  }
+
+  async getSubmissionsByCourse(courseId: string): Promise<Submission[]> {
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await SubmissionModel.find({ courseId }).lean()
+        docs.forEach((s: any) => this.submissions.set(s.id, s))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getSubmissionsByCourse error:', err?.message)
+    }
+    return Array.from(this.submissions.values()).filter((s) => s.courseId === courseId)
+  }
+
+  async getDoubtsByCourse(courseId: string): Promise<Doubt[]> {
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await DoubtModel.find({ courseId }).lean()
+        docs.forEach((d: any) => this.doubts.set(d.id, d))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getDoubtsByCourse error:', err?.message)
+    }
+    return Array.from(this.doubts.values()).filter((d) => d.courseId === courseId)
+  }
+
+  async getAnnouncement(id: string): Promise<Announcement | undefined> {
+    if (this.announcements.has(id)) return this.announcements.get(id)
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await AnnouncementModel.findOne({ id }).lean()
+        if (doc) {
+          this.announcements.set(doc.id, doc as any)
+          return doc as any
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Database] getAnnouncement error:', err?.message)
+    }
+    return undefined
+  }
+
+  async getAnnouncementsByCourse(courseId: string): Promise<Announcement[]> {
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await AnnouncementModel.find({ courseId }).lean()
+        docs.forEach((a: any) => this.announcements.set(a.id, a))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getAnnouncementsByCourse error:', err?.message)
+    }
+    return Array.from(this.announcements.values()).filter((a) => a.courseId === courseId)
   }
 
   async saveMaterial(mat: Material) {

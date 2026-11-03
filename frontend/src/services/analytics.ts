@@ -6,13 +6,21 @@ import { http } from './http'
 
 export interface CourseAnalytics {
   courseId: string
-  studentCount: number
+  hasData?: boolean
+  totalSubmissions?: number
+  totalStudents?: number
+  totalAssignments?: number
+  totalMaterials?: number
+  gradedSubmissions?: number
+  studentCount?: number
   submissionRate: number
-  averageScore: number
+  averageScore: number | null
+  distribution?: { range: string; count: number }[]
   scoreDistribution: { range: string; count: number }[]
   topicDifficulty: { topic: string; averageMarks: number; doubtCount: number }[]
   doubtTrends: { day: string; count: number }[]
   overrideRate: number
+  recentActivity?: Array<{ type: string; text: string; timestamp: string }>
 }
 
 /**

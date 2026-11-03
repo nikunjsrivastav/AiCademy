@@ -158,16 +158,17 @@ export interface CriterionScore {
 
 /** EXTENSION (decision D9): the AI's proposal, kept separate from the professor-approved `marks`. */
 export interface AIEvaluation {
-  runId: ID
-  criteria: CriterionScore[]
+  runId?: ID
+  marks?: number
+  criteria?: CriterionScore[]
   totalMarks: number
   feedback: string
   mistakes: string[]
   suggestions: string[]
-  confidence: Confidence
+  confidence: Confidence | number
   /** e.g. "possible_prompt_injection", "borderline" */
-  flags: string[]
-  createdAt: ISODate
+  flags?: string[]
+  createdAt?: ISODate
 }
 
 export interface Submission {

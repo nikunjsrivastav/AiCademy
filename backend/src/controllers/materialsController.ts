@@ -94,12 +94,12 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
 
 export async function deleteMaterial(req: AuthenticatedRequest, res: Response) {
   const { materialId } = req.params
-  const material = db.materials.get(materialId)
+  const material = await db.getMaterial(materialId)
   if (!material) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Material not found' })
   }
 
-  const course = db.courses.get(material.courseId)
+  const course = await db.getCourse(material.courseId)
   if (req.user!.role !== 'administrator' && course?.professorId !== req.user!.id) {
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Only course professor can delete materials' })
   }
@@ -113,13 +113,15 @@ export async function deleteMaterial(req: AuthenticatedRequest, res: Response) {
 
 export async function reindexMaterial(req: AuthenticatedRequest, res: Response) {
   const { materialId } = req.params
-  const material = db.materials.get(materialId)
+  const material = await db.getMaterial(materialId)
   if (!material) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Material not found' })
   }
 
   material.indexing.status = 'indexed'
   material.indexing.lastIndexedAt = new Date().toISOString()
+
+  await db.saveMaterial(material)
 
   // Re-index into embedded vector engine
   vectorEngine.indexMaterial(
@@ -130,6 +132,10 @@ export async function reindexMaterial(req: AuthenticatedRequest, res: Response) 
     material.description
   )
 
-  return res.json(material)
+  return res.json({
+    message: 'Material reindexed successfully',
+    material,
+    ...material,
+  })
 }
 

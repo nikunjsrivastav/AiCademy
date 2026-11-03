@@ -10,6 +10,8 @@ export interface UploadSubmissionPayload {
   fileSize: number
   fileUrl?: string
   mimeType?: string
+  file?: File
+  submissionContent?: string
 }
 
 export interface ScoreSubmissionPayload {
@@ -25,6 +27,18 @@ export async function uploadSubmission(
   assignmentId: string,
   payload: UploadSubmissionPayload
 ): Promise<Submission> {
+  if (typeof window !== 'undefined' && payload.file instanceof File) {
+    const formData = new FormData()
+    formData.append('file', payload.file)
+    formData.append('fileName', payload.fileName)
+    formData.append('fileSize', String(payload.fileSize))
+    if (payload.fileUrl) formData.append('fileUrl', payload.fileUrl)
+    if (payload.mimeType) formData.append('mimeType', payload.mimeType)
+    if (payload.submissionContent) formData.append('submissionContent', payload.submissionContent)
+    const res = await http.post<Submission>(`/submissions/${assignmentId}/upload`, formData)
+    return res.data
+  }
+
   const res = await http.post<Submission>(`/submissions/${assignmentId}/upload`, payload)
   return res.data
 }

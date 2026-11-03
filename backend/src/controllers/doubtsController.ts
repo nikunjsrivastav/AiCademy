@@ -68,7 +68,7 @@ export async function listDoubts(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
   const { courseId } = req.params
 
-  let doubts = Array.from(db.doubts.values()).filter((d) => d.courseId === courseId)
+  let doubts = await db.getDoubtsByCourse(courseId)
 
   // Filter for student
   if (user.role === 'student') {

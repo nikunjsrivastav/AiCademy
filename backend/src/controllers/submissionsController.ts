@@ -1,4 +1,5 @@
 import type { Response } from 'express'
+import fs from 'node:fs'
 import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Submission } from '../types/index.js'
@@ -12,7 +13,7 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
   const file = req.file
   const body = req.body
 
-  const assignment = db.assignments.get(assignmentId)
+  const assignment = await db.getAssignment(assignmentId)
   if (!assignment) {
     return res.status(404).json({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Assignment not found' })
   }
@@ -24,7 +25,7 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
 
   const originalName = file?.originalname || body.fileName || 'submission.zip'
   const ext = originalName.split('.').pop()?.toLowerCase() || 'zip'
-  const allowedExts = ['pdf', 'docx', 'txt', 'zip']
+  const allowedExts = ['pdf', 'docx', 'txt', 'zip', 'py', 'js', 'ts', 'java', 'cpp', 'c', 'md']
   if (!allowedExts.includes(ext)) {
     return res.status(400).json({ code: 'UNSUPPORTED_FORMAT', message: `File extension .${ext} is not allowed. Allowed: ${allowedExts.join(', ')}` })
   }
@@ -41,14 +42,29 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
   const now = new Date()
   const isLate = now.getTime() > new Date(assignment.dueDate).getTime()
 
-  // Existing submissions for versioning
-  const existing = Array.from(db.submissions.values()).filter(
-    (s) => s.assignmentId === assignmentId && s.studentId === user.id
-  )
+  // Existing submissions for versioning from Atlas
+  const existingList = await db.getSubmissionsByAssignment(assignmentId)
+  const existing = existingList.filter((s) => s.studentId === user.id)
   const version = existing.length + 1
 
   // 1. Topic Extraction & Syllabus RAG Retrieval (Option A In-Process Vector Engine)
-  const topicQuery = `${assignment.title} ${assignment.description || ''} ${assignment.rubricCriteria.map((c) => c.name).join(' ')}`
+  // Ensure vector engine has course chunks if serverless instance is cold
+  const courseMaterials = await db.getMaterialsByCourse(assignment.courseId)
+  if (vectorEngine.getChunkCount(assignment.courseId) === 0 && courseMaterials.length > 0) {
+    courseMaterials.forEach((m) =>
+      vectorEngine.indexMaterial(
+        assignment.courseId,
+        m.id,
+        m.title,
+        m.indexing?.topics || [],
+        m.description
+      )
+    )
+  }
+
+  const criteriaList = assignment.rubricCriteria || (assignment as any).rubric || []
+  const criteriaText = criteriaList.map((c: any) => c.name || c.title || '').join(' ')
+  const topicQuery = `${assignment.title} ${assignment.description || ''} ${criteriaText}`
   const topicMatches = vectorEngine.search(assignment.courseId, topicQuery, 4)
   const retrievedTopicChunks = topicMatches.map((m) => ({
     materialTitle: m.chunk.materialTitle,
@@ -57,14 +73,21 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     similarity: m.similarity,
   }))
 
-  // 2. Submission content extraction
+  // 2. Submission content extraction (buffer on disk or memory)
   let submissionContent = body.submissionContent || body.content || ''
-  if (!submissionContent && file && file.buffer) {
+  const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
+  if (!submissionContent && fileBuffer) {
     const isText =
-      /text|plain|json|javascript|typescript|python|markdown|html/i.test(file.mimetype) ||
-      /\.(txt|md|py|js|ts|jsx|tsx|json|c|cpp|java|sql)$/i.test(originalName)
+      /text|plain|json|javascript|typescript|python|markdown|html/i.test(file?.mimetype || '') ||
+      /\.(txt|md|py|js|ts|jsx|tsx|json|c|cpp|java|sql|sh)$/i.test(originalName)
     if (isText) {
-      submissionContent = file.buffer.toString('utf-8').slice(0, 8000)
+      submissionContent = fileBuffer.toString('utf-8').slice(0, 8000)
+    } else {
+      const rawStr = fileBuffer.toString('ascii')
+      const printable = rawStr.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim()
+      if (printable.length > 100) {
+        submissionContent = printable.slice(0, 5000)
+      }
     }
   }
   if (!submissionContent) {
@@ -77,12 +100,24 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     courseName: course.name,
     assignmentTitle: assignment.title,
     assignmentDescription: assignment.description,
-    rubricCriteria: assignment.rubricCriteria,
+    rubricCriteria: criteriaList.map((c: any) => ({
+      id: c.id,
+      name: c.name || c.title || 'Criterion',
+      description: c.description || '',
+      weight: c.weight || 1,
+      maxScore: c.maxScore || c.maxMarks || 25,
+    })),
     maxMarks: assignment.maxMarks || 100,
     submissionFileName: originalName,
     submissionContent,
     retrievedTopicChunks,
   })
+
+  // Normalize aiEvaluation so both totalMarks and marks exist
+  const normalizedAiEval = {
+    ...aiEval,
+    totalMarks: aiEval.marks,
+  }
 
   const submission: Submission = {
     id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -99,7 +134,7 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     mistakes: aiEval.mistakes,
     suggestions: aiEval.suggestions,
     confidence: aiEval.confidence,
-    aiEvaluation: aiEval,
+    aiEvaluation: normalizedAiEval as any,
     submittedAt: now.toISOString(),
     isLate,
     version,
@@ -113,7 +148,7 @@ export async function listSubmissions(req: AuthenticatedRequest, res: Response) 
   const user = req.user!
   const { assignmentId } = req.params
 
-  const assignment = db.assignments.get(assignmentId)
+  const assignment = await db.getAssignment(assignmentId)
   if (!assignment) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Assignment not found' })
   }
@@ -137,7 +172,7 @@ export async function scoreSubmission(req: AuthenticatedRequest, res: Response) 
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Only faculty can score submissions' })
   }
 
-  const submission = db.submissions.get(submissionId)
+  const submission = await db.getSubmission(submissionId)
   if (!submission) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Submission not found' })
   }
@@ -148,6 +183,9 @@ export async function scoreSubmission(req: AuthenticatedRequest, res: Response) 
   }
   if (feedback) submission.feedback = feedback
   if (notes) submission.professorNotes = notes
+
+  // Persist score override permanently to MongoDB Atlas
+  await db.saveSubmission(submission)
 
   return res.json(submission)
 }

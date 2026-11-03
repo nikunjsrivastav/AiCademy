@@ -186,6 +186,7 @@ export const StudentCourseDetail: React.FC = () => {
       const res = await uploadSubmission(uploadModalAsg.id, {
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
+        file: selectedFile,
       })
 
       showToast('Assignment submitted successfully! Grader Agent evaluating work...', 'success')
@@ -300,7 +301,7 @@ export const StudentCourseDetail: React.FC = () => {
       </div>
 
       {/* Hero Banner */}
-      <div className="p-6 sm:p-8 rounded-[8px] border border-mist bg-white shadow-xs space-y-4">
+      <div className="p-6 sm:p-8 rounded-[8px] border border-line bg-surface shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-bold px-3 py-1 rounded-[6px] bg-accent-soft text-accent">
@@ -309,27 +310,27 @@ export const StudentCourseDetail: React.FC = () => {
             <Badge variant="neutral">{course.term || 'Fall 2026'}</Badge>
             <AIBadge label="Agentic Classroom" />
           </div>
-          <span className="text-xs text-slate-500 font-medium">
+          <span className="text-xs text-muted font-medium">
             {course.studentCount} Students Enrolled
           </span>
         </div>
 
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-ink tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-fg tracking-tight">
             {course.name}
           </h1>
-          <p className="text-sm text-slate-600 mt-2 max-w-3xl leading-relaxed">
+          <p className="text-sm text-muted mt-2 max-w-3xl leading-relaxed">
             {course.description}
           </p>
         </div>
 
         {course.professor && (
-          <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-mist text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-line text-xs text-muted">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-accent-soft text-accent flex items-center justify-center font-bold text-[10px]">
                 {course.professor.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
               </div>
-              <span className="font-semibold text-ink">{course.professor.name}</span>
+              <span className="font-semibold text-fg">{course.professor.name}</span>
             </div>
             <span>•</span>
             <span>{course.department || 'Computer Science'}</span>
@@ -342,13 +343,13 @@ export const StudentCourseDetail: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-mist gap-2 overflow-x-auto text-xs font-semibold">
+      <div className="flex border-b border-line gap-2 overflow-x-auto text-xs font-semibold">
         <button
           onClick={() => setActiveTab('materials')}
           className={`pb-3 px-3 transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'materials'
               ? 'border-accent text-accent font-bold'
-              : 'border-transparent text-slate-500 hover:text-ink'
+              : 'border-transparent text-muted hover:text-fg'
           }`}
         >
           <BookOpen className="w-4 h-4" />
@@ -360,7 +361,7 @@ export const StudentCourseDetail: React.FC = () => {
           className={`pb-3 px-3 transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'assignments'
               ? 'border-accent text-accent font-bold'
-              : 'border-transparent text-slate-500 hover:text-ink'
+              : 'border-transparent text-muted hover:text-fg'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -372,7 +373,7 @@ export const StudentCourseDetail: React.FC = () => {
           className={`pb-3 px-3 transition-colors border-b-2 cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
             activeTab === 'tutor'
               ? 'border-accent text-accent font-bold'
-              : 'border-transparent text-slate-500 hover:text-ink'
+              : 'border-transparent text-muted hover:text-fg'
           }`}
         >
           <Bot className="w-4 h-4" />
@@ -409,32 +410,32 @@ export const StudentCourseDetail: React.FC = () => {
       {activeTab === 'materials' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-ink">Learning Materials & Vector Ingestions</h2>
+            <h2 className="text-base font-bold text-fg">Learning Materials & Vector Ingestions</h2>
             <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-muted absolute left-3 top-2.5" />
               <input
                 type="text"
                 value={materialSearch}
                 onChange={(e) => setMaterialSearch(e.target.value)}
                 placeholder="Search topics or keywords..."
-                className="w-full text-xs pl-9 pr-3 py-2 bg-chalk border border-mist rounded-[6px] text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full text-xs pl-9 pr-3 py-2 bg-surface-2 border border-line rounded-[6px] text-fg placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
           </div>
 
           <div className="space-y-3">
             {filteredMaterials.map((mat) => (
-              <Card key={mat.id} padding="compact" className="border border-mist flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <Card key={mat.id} padding="compact" className="border border-line bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-[8px] bg-chalk border border-mist shrink-0">
+                  <div className="p-2.5 rounded-[8px] bg-surface-2 border border-line shrink-0">
                     {getFileIcon(mat.type)}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-ink">{mat.title}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">{mat.description}</p>
+                    <h3 className="text-sm font-bold text-fg">{mat.title}</h3>
+                    <p className="text-xs text-muted mt-0.5">{mat.description}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {(mat.indexing?.topics || []).map((topic, i) => (
-                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-[4px] bg-chalk text-slate-600 border border-mist font-medium">
+                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-[4px] bg-surface-2 text-fg border border-line font-medium">
                           {topic}
                         </span>
                       ))}
@@ -463,8 +464,8 @@ export const StudentCourseDetail: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-ink">Course Assignments & Evaluations</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-base font-bold text-fg">Course Assignments & Evaluations</h2>
+              <p className="text-xs text-muted">
                 Submit work in PDF, DOCX, TXT, or ZIP up to 10MB (D10). Graded via autonomous Rubric Grader Agent.
               </p>
             </div>
@@ -476,16 +477,17 @@ export const StudentCourseDetail: React.FC = () => {
               const isSubmitted = Boolean(sub)
               const isGraded = sub?.evaluationStatus === 'graded'
               const isPendingReview = sub?.evaluationStatus === 'awaiting_review'
+              const criteriaList = asg.rubric || (asg as any).rubricCriteria || []
 
               return (
-                <Card key={asg.id} padding="standard" className="border border-mist space-y-4">
+                <Card key={asg.id} padding="standard" className="border border-line bg-surface space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[4px] bg-accent-soft text-accent">
                           {asg.classification}
                         </span>
-                        <h3 className="text-base font-bold text-ink">{asg.title}</h3>
+                        <h3 className="text-base font-bold text-fg">{asg.title}</h3>
                         {isGraded ? (
                           <Badge variant="success">Graded ({sub?.marks}/{asg.maxMarks})</Badge>
                         ) : isPendingReview ? (
@@ -497,8 +499,8 @@ export const StudentCourseDetail: React.FC = () => {
                         )}
                         {sub?.late && <Badge variant="danger">Late</Badge>}
                       </div>
-                      <p className="text-xs text-slate-600 leading-relaxed">{asg.description}</p>
-                      <p className="text-xs text-slate-400 font-mono flex items-center gap-2">
+                      <p className="text-xs text-muted leading-relaxed">{asg.description}</p>
+                      <p className="text-xs text-muted font-mono flex items-center gap-2">
                         <Clock className="w-3.5 h-3.5" />
                         Due: {new Date(asg.dueDate).toLocaleDateString()} at{' '}
                         {new Date(asg.dueDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -519,18 +521,18 @@ export const StudentCourseDetail: React.FC = () => {
                   </div>
 
                   {/* Rubric Criteria Accordion Preview */}
-                  <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-2">
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                      Rubric Criteria ({asg.rubric.length} Dimensions)
+                  <div className="p-4 rounded-[8px] bg-surface-2 border border-line space-y-2">
+                    <span className="text-xs font-bold text-fg uppercase tracking-wider block">
+                      Rubric Criteria ({criteriaList.length} Dimensions)
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-                      {asg.rubric.map((crit) => (
-                        <div key={crit.id} className="p-3 bg-white rounded-[6px] border border-mist text-xs space-y-1">
-                          <div className="flex justify-between font-bold text-ink">
-                            <span>{crit.title}</span>
-                            <span className="text-accent">{crit.maxMarks} pts</span>
+                      {criteriaList.map((crit: any) => (
+                        <div key={crit.id} className="p-3 bg-surface rounded-[6px] border border-line text-xs space-y-1">
+                          <div className="flex justify-between font-bold text-fg">
+                            <span>{crit.title || crit.name}</span>
+                            <span className="text-accent">{crit.maxMarks || crit.maxScore} pts</span>
                           </div>
-                          <p className="text-slate-500 text-[11px] leading-relaxed">{crit.description}</p>
+                          <p className="text-muted text-[11px] leading-relaxed">{crit.description}</p>
                         </div>
                       ))}
                     </div>
@@ -538,11 +540,11 @@ export const StudentCourseDetail: React.FC = () => {
 
                   {/* If Submitted: Submission Evaluation Status Card */}
                   {sub && (
-                    <div className="p-4 rounded-[8px] bg-white border border-accent/30 space-y-3">
+                    <div className="p-4 rounded-[8px] bg-surface border border-accent/30 space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          <span className="text-xs font-bold text-ink">
+                          <span className="text-xs font-bold text-fg">
                             Active Submission: {sub.fileName} (v{sub.version})
                           </span>
                           {sub.confidence && (
@@ -599,19 +601,19 @@ export const StudentCourseDetail: React.FC = () => {
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={handleClearChat}>
-              <Trash2 className="w-3.5 h-3.5 text-slate-500" />
+              <Trash2 className="w-3.5 h-3.5 text-muted" />
               Clear Conversation
             </Button>
           </div>
 
           {/* Chat Stream Window */}
-          <Card padding="compact" className="border border-mist h-[450px] flex flex-col justify-between bg-chalk/30">
+          <Card padding="compact" className="border border-line h-[450px] flex flex-col justify-between bg-surface-2/30">
             <div className="overflow-y-auto space-y-4 pr-2 flex-1">
               {doubts.length === 0 ? (
                 <div className="text-center py-16 space-y-2">
                   <Bot className="w-10 h-10 text-accent mx-auto" />
-                  <p className="text-sm font-bold text-ink">Ask your course-specific question</p>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  <p className="text-sm font-bold text-fg">Ask your course-specific question</p>
+                  <p className="text-xs text-muted max-w-sm mx-auto">
                     The Tutor Agent searches through lecture slides, notes, and textbooks strictly within {course.code}.
                   </p>
                 </div>
@@ -620,7 +622,7 @@ export const StudentCourseDetail: React.FC = () => {
                   <div key={d.id} className="space-y-3">
                     {/* Student Question */}
                     <div className="flex justify-end">
-                      <div className="max-w-xl bg-accent text-white p-3 rounded-[8px] rounded-br-none text-xs leading-relaxed space-y-1">
+                      <div className="max-w-xl bg-accent text-accent-contrast p-3 rounded-[8px] rounded-br-none text-xs leading-relaxed space-y-1">
                         <p>{d.question}</p>
                         {d.qualityScore && (
                           <div className="pt-1.5 border-t border-white/20 flex items-center justify-between text-[10px] text-white/90 font-mono">
@@ -634,30 +636,30 @@ export const StudentCourseDetail: React.FC = () => {
                     {/* Question Quality Coaching Tip if present */}
                     {d.qualityScore?.tip && (
                       <div className="flex justify-end">
-                        <span className="text-[11px] text-slate-500 bg-white border border-mist px-2.5 py-1 rounded-[6px] max-w-lg">
-                          💡 <span className="font-semibold">Coaching Tip:</span> {d.qualityScore.tip}
+                        <span className="text-[11px] text-muted bg-surface border border-line px-2.5 py-1 rounded-[6px] max-w-lg">
+                          💡 <span className="font-semibold text-fg">Coaching Tip:</span> {d.qualityScore.tip}
                         </span>
                       </div>
                     )}
 
                     {/* Tutor Answer */}
                     <div className="flex justify-start">
-                      <div className="max-w-2xl bg-white border border-mist p-4 rounded-[8px] rounded-bl-none text-xs text-ink space-y-3 shadow-2xs">
+                      <div className="max-w-2xl bg-surface border border-line p-4 rounded-[8px] rounded-bl-none text-xs text-fg space-y-3 shadow-2xs">
                         <div className="flex items-center gap-2">
                           <AIBadge label="Course Tutor" />
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-muted font-mono">
                             Confidence: {Math.round((d.confidence ?? 0.95) * 100)}%
                           </span>
                         </div>
 
-                        <div className="whitespace-pre-line leading-relaxed text-slate-800 dark:text-slate-200">
+                        <div className="whitespace-pre-line leading-relaxed text-fg">
                           {d.answer}
                         </div>
 
                         {/* Citations Pills */}
                         {d.citations && d.citations.length > 0 && (
-                          <div className="pt-2 border-t border-mist/80 space-y-1.5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          <div className="pt-2 border-t border-line/80 space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">
                               Source Citations ({d.citations.length})
                             </span>
                             <div className="flex flex-wrap gap-2">
@@ -682,7 +684,7 @@ export const StudentCourseDetail: React.FC = () => {
               )}
               {isAsking && (
                 <div className="flex justify-start">
-                  <div className="bg-white border border-mist p-3 rounded-[8px] text-xs text-slate-500 flex items-center gap-2">
+                  <div className="bg-surface border border-line p-3 rounded-[8px] text-xs text-muted flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-accent animate-spin" />
                     Tutor Agent searching course vectors and validating claim grounding...
                   </div>
@@ -692,13 +694,13 @@ export const StudentCourseDetail: React.FC = () => {
             </div>
 
             {/* Input Row */}
-            <form onSubmit={handleAskDoubt} className="pt-3 border-t border-mist flex gap-2">
+            <form onSubmit={handleAskDoubt} className="pt-3 border-t border-line flex gap-2">
               <input
                 type="text"
                 value={questionInput}
                 onChange={(e) => setQuestionInput(e.target.value)}
                 placeholder="Ask about normalization, algorithms, or lecture concepts..."
-                className="flex-1 text-xs px-3.5 py-2.5 bg-white border border-mist rounded-[8px] text-ink focus:outline-none focus:ring-1 focus:ring-accent"
+                className="flex-1 text-xs px-3.5 py-2.5 bg-surface border border-line rounded-[8px] text-fg placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
               <Button variant="primary" size="md" disabled={isAsking || !questionInput.trim()} type="submit">
                 <Send className="w-4 h-4" />
@@ -712,7 +714,7 @@ export const StudentCourseDetail: React.FC = () => {
       {/* TAB 4: ANNOUNCEMENTS */}
       {activeTab === 'announcements' && (
         <div className="space-y-4">
-          <h2 className="text-base font-bold text-ink">Class Announcements & Discussion</h2>
+          <h2 className="text-base font-bold text-fg">Class Announcements & Discussion</h2>
 
           {announcements.length === 0 ? (
             <EmptyState
@@ -849,13 +851,13 @@ export const StudentCourseDetail: React.FC = () => {
           <div className="space-y-4">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-mist hover:border-accent rounded-[8px] p-8 text-center cursor-pointer transition-colors bg-chalk/50"
+              className="border-2 border-dashed border-line hover:border-accent rounded-[8px] p-8 text-center cursor-pointer transition-colors bg-surface-2/50"
             >
-              <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <p className="text-xs font-bold text-ink">
+              <UploadCloud className="w-8 h-8 text-muted mx-auto mb-2" />
+              <p className="text-xs font-bold text-fg">
                 {selectedFile ? selectedFile.name : 'Click to select or drag and drop your file'}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-muted mt-1">
                 Supported formats: PDF, DOCX, TXT, ZIP up to 10 MB (Decision D10)
               </p>
               <input
@@ -893,10 +895,10 @@ export const StudentCourseDetail: React.FC = () => {
           description={`${citationModal.materialTitle} • Page ${citationModal.page}`}
         >
           <div className="space-y-3">
-            <div className="p-4 rounded-[8px] bg-chalk border border-mist font-mono text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+            <div className="p-4 rounded-[8px] bg-surface-2 border border-line font-mono text-xs text-fg leading-relaxed">
               "{citationModal.snippet}"
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
               The Tutor Agent verified that this claim is grounded directly in the published course material.
             </p>
             <div className="flex justify-end pt-2">

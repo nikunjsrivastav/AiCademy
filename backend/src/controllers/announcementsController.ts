@@ -5,7 +5,7 @@ import type { Announcement, Comment } from '../types/index.js'
 
 export async function listAnnouncements(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
-  const announcements = Array.from(db.announcements.values()).filter((a) => a.courseId === courseId)
+  const announcements = await db.getAnnouncementsByCourse(courseId)
   return res.json(announcements)
 }
 
@@ -17,7 +17,7 @@ export async function createAnnouncement(req: AuthenticatedRequest, res: Respons
     return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'courseId, title, and content are required' })
   }
 
-  const course = db.courses.get(courseId)
+  const course = await db.getCourse(courseId)
   if (!course) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'Course not found' })
   }
@@ -51,7 +51,7 @@ export async function addComment(req: AuthenticatedRequest, res: Response) {
     return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Comment content is required' })
   }
 
-  const announcement = db.announcements.get(announcementId)
+  const announcement = await db.getAnnouncement(announcementId)
   if (!announcement) {
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Announcement not found' })
   }
@@ -66,7 +66,9 @@ export async function addComment(req: AuthenticatedRequest, res: Response) {
     createdAt: new Date().toISOString(),
   }
 
-  announcement.comments.push(comment)
+  announcement.comments = [...(announcement.comments || []), comment]
+  await db.saveAnnouncement(announcement)
+
   return res.status(201).json(comment)
 }
 
