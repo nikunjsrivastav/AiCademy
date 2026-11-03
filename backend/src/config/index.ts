@@ -12,5 +12,8 @@ export const config = {
   mongoUri: process.env.MONGODB_URI || '',
   blobToken: process.env.BLOB_READ_WRITE_TOKEN || '',
   aiServiceUrl: process.env.AI_SERVICE_URL || '',
+  ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+  ollamaModel: process.env.OLLAMA_MODEL || '',
+  useLocalLlm: process.env.USE_LOCAL_LLM !== 'false',
 }
 

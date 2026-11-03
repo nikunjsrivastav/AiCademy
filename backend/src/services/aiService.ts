@@ -51,9 +51,82 @@ async function getAvailableGroqModels(client: Groq): Promise<string[]> {
 const CANDIDATE_GROQ_MODELS = [
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
-  'llama3-70b-8192',
-  'llama3-8b-8192',
 ]
+
+let discoveredLocalModel: string | null = null
+
+/**
+ * Invokes a local LLM via Ollama (http://127.0.0.1:11434).
+ * Auto-detects installed models (qwen2.5:7b, qwen3:8b, qwen2.5:3b, llama, etc.)
+ * Returns raw string content or null if Ollama is offline/unreachable.
+ */
+async function callLocalLlm(
+  messages: Array<{ role: string; content: string }>,
+  temperature = 0.1,
+  jsonFormat = true
+): Promise<string | null> {
+  if (config.useLocalLlm === false || config.nodeEnv === 'test') return null
+  const baseUrl = config.ollamaBaseUrl || 'http://127.0.0.1:11434'
+
+  try {
+    let model = config.ollamaModel || discoveredLocalModel
+    if (!model) {
+      const tagsRes = await fetch(`${baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(1500),
+      })
+      if (tagsRes.ok) {
+        const data = (await tagsRes.json()) as any
+        const models = (data.models || []).map((m: any) => m.name || m.model || '')
+        model =
+          models.find((m: string) => m.includes('qwen2.5:3b')) ||
+          models.find((m: string) => m.includes('qwen2.5:7b')) ||
+          models.find((m: string) => m.includes('qwen3')) ||
+          models.find((m: string) => m.includes('qwen2.5')) ||
+          models.find((m: string) => m.includes('llama')) ||
+          models[0]
+        if (model) {
+          discoveredLocalModel = model
+          console.log(`[AI Service] Discovered local Ollama model: ${model}`)
+        }
+      }
+    }
+
+    if (!model) return null
+
+    console.log(`[AI Service] Executing query via local LLM (${model}) on ${baseUrl}...`)
+    const chatRes = await fetch(`${baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        format: jsonFormat ? 'json' : undefined,
+        options: {
+          temperature,
+        },
+      }),
+      signal: AbortSignal.timeout(180000), // 3 min timeout for deep local inference
+    })
+
+    if (!chatRes.ok) {
+      const errText = await chatRes.text()
+      console.warn(`[AI Service] Local LLM notice (HTTP ${chatRes.status}):`, errText)
+      return null
+    }
+
+    const data = (await chatRes.json()) as any
+    const content = data?.message?.content
+    if (content) {
+      console.log(`[AI Service] Local LLM (${model}) completed execution successfully.`)
+      return content
+    }
+  } catch (err: any) {
+    // Expected when running on cloud Vercel or when Ollama is not active locally
+    console.log(`[AI Service] Local LLM not reachable on ${baseUrl} (${err?.message || err}).`)
+  }
+  return null
+}
 
 /**
  * Executes a Groq chat completion with multi-model fallback resiliency.
@@ -127,11 +200,10 @@ export interface TutorResponse {
 }
 
 /**
- * Syllabus RAG Tutor with Groq Llama 3.3 70B & deterministic fallback.
+ * Syllabus RAG Tutor with Local LLM (Ollama) & Groq Llama 3.3 70B & deterministic fallback.
  */
 export async function askTutorWithAI(params: AskTutorParams): Promise<TutorResponse> {
   const { courseCode, courseName, question, materials, retrievedChunks } = params
-  const client = getGroq()
 
   // Out of scope fast rejection
   const isOutOfScope = /weather|movie|recipe|celebrity|football|crypto|joke/i.test(question)
@@ -142,70 +214,85 @@ export async function askTutorWithAI(params: AskTutorParams): Promise<TutorRespo
     }
   }
 
-  if (client) {
-    try {
-      let materialContext = ''
-      if (retrievedChunks && retrievedChunks.length > 0) {
-        materialContext = retrievedChunks
-          .map(
-            (c, i) =>
-              `[Source ${i + 1} - ${c.materialTitle} (p. ${c.pageNumber}, relevance: ${(c.similarity * 100).toFixed(0)}%)]:\n"${c.text}"`
-          )
-          .join('\n\n')
-      } else if (materials.length > 0) {
-        materialContext = materials
-          .map((m) => `[Material ID: ${m.id}] Title: ${m.title} (Topics: ${m.topics.join(', ')})`)
-          .join('\n')
-      } else {
-        materialContext = 'General university course syllabus'
-      }
+  let materialContext = ''
+  if (retrievedChunks && retrievedChunks.length > 0) {
+    materialContext = retrievedChunks
+      .map(
+        (c, i) =>
+          `[Source ${i + 1} - ${c.materialTitle} (p. ${c.pageNumber}, relevance: ${(c.similarity * 100).toFixed(0)}%)]:\n"${c.text}"`
+      )
+      .join('\n\n')
+  } else if (materials.length > 0) {
+    materialContext = materials
+      .map((m) => `[Material ID: ${m.id}] Title: ${m.title} (Topics: ${m.topics.join(', ')})`)
+      .join('\n')
+  } else {
+    materialContext = 'General university course syllabus'
+  }
 
-      const completion = await callGroqWithFallback(client, {
-        messages: [
-          {
-            role: 'system',
-            content: `You are the authoritative, syllabus-grounded AI Tutor for ${courseCode}: ${courseName}.
+  const tutorMessages = [
+    {
+      role: 'system',
+      content: `You are the authoritative, syllabus-grounded AI Tutor for ${courseCode}: ${courseName}.
 Rules:
 1. Ground your answers strictly in the provided course materials:
 ${materialContext}
 2. Explain concepts with mathematical and computational precision.
 3. If the inquiry is completely outside this course's syllabus, politely decline and instruct the student to ask questions within scope.
 4. Keep explanations clear, academic, and encouraging.`,
-          },
-          {
-            role: 'user',
-            content: question,
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 1024,
-      })
+    },
+    {
+      role: 'user',
+      content: question,
+    },
+  ]
 
-      const answerText = completion.choices[0]?.message?.content || ''
+  let answerText: string | null = null
 
-      const citations: SourceCitation[] = (retrievedChunks && retrievedChunks.length > 0)
-        ? retrievedChunks.map((c) => ({
-            materialId: c.materialId,
-            materialTitle: c.materialTitle,
-            pageNumber: c.pageNumber,
-            snippet: c.text.length > 90 ? `${c.text.slice(0, 90)}...` : c.text,
-            similarity: Math.round(c.similarity * 100) / 100,
-          }))
-        : materials.slice(0, 2).map((m, idx) => ({
-            materialId: m.id,
-            materialTitle: m.title,
-            pageNumber: idx * 3 + 2,
-            snippet: `Grounded in ${m.title} concepts relevant to: ${question.slice(0, 40)}...`,
-            similarity: 0.94 - idx * 0.04,
-          }))
-
-      return {
-        answer: answerText,
-        citations,
-      }
-    } catch (err) {
-      console.warn('[AI Service] Groq API call failed, falling back to deterministic heuristic:', err)
+  // Tier 1: Try Local LLM (Ollama)
+  if (config.useLocalLlm) {
+    try {
+      answerText = await callLocalLlm(tutorMessages, 0.2, false)
+    } catch (err: any) {
+      console.warn('[AI Service] Local LLM tutor query failed:', err?.message || err)
     }
+  }
+
+  // Tier 2: Try Groq Cloud API
+  if (!answerText) {
+    const client = getGroq()
+    if (client) {
+      try {
+        const completion = await callGroqWithFallback(client, {
+          messages: tutorMessages,
+          temperature: 0.2,
+          max_tokens: 1024,
+        })
+        answerText = completion.choices[0]?.message?.content || null
+      } catch (err: any) {
+        console.warn('[AI Service] Groq tutor query failed:', err?.message || err)
+      }
+    }
+  }
+
+  if (answerText) {
+    const citations: SourceCitation[] = (retrievedChunks && retrievedChunks.length > 0)
+      ? retrievedChunks.map((c) => ({
+          materialId: c.materialId,
+          materialTitle: c.materialTitle,
+          pageNumber: c.pageNumber,
+          snippet: c.text.length > 90 ? `${c.text.slice(0, 90)}...` : c.text,
+          similarity: Math.round(c.similarity * 100) / 100,
+        }))
+      : materials.slice(0, 2).map((m, idx) => ({
+          materialId: m.id,
+          materialTitle: m.title,
+          pageNumber: idx * 3 + 2,
+          snippet: `Grounded in ${m.title} concepts relevant to: ${question.slice(0, 40)}...`,
+          similarity: 0.94 - idx * 0.04,
+        }))
+
+    return { answer: answerText, citations }
   }
 
   // Fallback heuristic generator (PDF Section 3.3)
@@ -243,31 +330,57 @@ ${materialContext}
  * Question Quality Coach scoring clarity, specificity, and effort (B1.4).
  */
 export async function scoreQuestionQualityWithAI(question: string): Promise<QuestionQuality> {
-  const client = getGroq()
-
-  if (client) {
-    try {
-      const completion = await callGroqWithFallback(client, {
-        messages: [
-          {
-            role: 'system',
-            content: `Analyze the student's question for pedagogical quality. Return ONLY a valid JSON object with keys:
+  const qualityMessages = [
+    {
+      role: 'system',
+      content: `Analyze the student's question for pedagogical quality. Return ONLY a valid JSON object with keys:
 - "clarity" (number 1-10)
 - "specificity" (number 1-10)
 - "effort" (number 1-10)
 - "feedback" (string with concise constructive tip)`,
-          },
-          {
-            role: 'user',
-            content: question,
-          },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 512,
-      })
+    },
+    {
+      role: 'user',
+      content: question,
+    },
+  ]
 
-      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}')
+  let rawJson: string | null = null
+
+  // Tier 1: Local LLM (Ollama)
+  if (config.useLocalLlm) {
+    try {
+      rawJson = await callLocalLlm(qualityMessages, 0.1, true)
+    } catch (err: any) {
+      console.warn('[AI Service] Local LLM question quality scoring notice:', err?.message || err)
+    }
+  }
+
+  // Tier 2: Groq Cloud API
+  if (!rawJson) {
+    const client = getGroq()
+    if (client) {
+      try {
+        const completion = await callGroqWithFallback(client, {
+          messages: qualityMessages,
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 512,
+        })
+        rawJson = completion.choices[0]?.message?.content || null
+      } catch (err: any) {
+        console.warn('[AI Service] Groq question quality scoring failed:', err?.message || err)
+      }
+    }
+  }
+
+  if (rawJson) {
+    try {
+      let clean = rawJson.trim()
+      if (clean.startsWith('```')) {
+        clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+      }
+      const parsed = JSON.parse(clean)
       const clarity = Math.min(10, Math.max(1, Number(parsed.clarity) || 7))
       const specificity = Math.min(10, Math.max(1, Number(parsed.specificity) || 7))
       const effort = Math.min(10, Math.max(1, Number(parsed.effort) || 7))
@@ -281,7 +394,7 @@ export async function scoreQuestionQualityWithAI(question: string): Promise<Ques
         feedback: parsed.feedback || 'Good inquiry. Try adding specific examples or constraints for deeper assistance.',
       }
     } catch (err) {
-      console.warn('[AI Service] Groq question quality scoring failed, using heuristic:', err)
+      // Fall through to heuristic
     }
   }
 
@@ -324,6 +437,8 @@ export interface EvaluateSubmissionParams {
 /**
  * Academic Professor Evaluator Agent with Teacher Question Grounding,
  * Syllabus RAG Context, and Prompt Injection Critic Defense (Decision D13).
+ * Prioritizes Local LLM (Ollama) when running locally, with Groq cloud API
+ * and grounded requirement heuristic fallback.
  */
 export async function evaluateSubmissionWithAI(params: EvaluateSubmissionParams): Promise<AiEvaluation> {
   const {
@@ -345,26 +460,23 @@ export async function evaluateSubmissionWithAI(params: EvaluateSubmissionParams)
     ? assignmentQuestion.trim()
     : `${assignmentTitle}\n\n${assignmentDescription || ''}`
 
-  if (client) {
-    try {
-      const criteriaList = rubricCriteria
-        .map((c) => `- [ID: ${c.id}] ${c.name} (Max: ${c.maxScore} pts): ${c.description || 'Standard academic proficiency'}`)
-        .join('\n')
+  const criteriaList = rubricCriteria
+    .map((c) => `- [ID: ${c.id}] ${c.name} (Max: ${c.maxScore} pts): ${c.description || 'Standard academic proficiency'}`)
+    .join('\n')
 
-      const ragContext = retrievedTopicChunks.length > 0
-        ? retrievedTopicChunks
-            .map(
-              (c, i) =>
-                `[Curriculum Source ${i + 1} - ${c.materialTitle} (p. ${c.pageNumber}, relevance: ${(c.similarity * 100).toFixed(0)}%)]:\n"${c.text}"`
-            )
-            .join('\n\n')
-        : 'Syllabus standards require structural invariants, computational efficiency, and robust edge-case handling.'
+  const ragContext = retrievedTopicChunks.length > 0
+    ? retrievedTopicChunks
+        .map(
+          (c, i) =>
+            `[Curriculum Source ${i + 1} - ${c.materialTitle} (p. ${c.pageNumber}, relevance: ${(c.similarity * 100).toFixed(0)}%)]:\n"${c.text}"`
+        )
+        .join('\n\n')
+    : 'Syllabus standards require structural invariants, computational efficiency, and robust edge-case handling.'
 
-      const completion = await callGroqWithFallback(client, {
-        messages: [
-          {
-            role: 'system',
-            content: `You are Professor Eleanor Vance, Senior Academic Examiner and Lead Course Evaluator for ${courseCode}: ${courseName}.
+  const evalMessages = [
+    {
+      role: 'system',
+      content: `You are Professor Eleanor Vance, Senior Academic Examiner and Lead Course Evaluator for ${courseCode}: ${courseName}.
 
 YOUR PERSONA & ROLE:
 - You are an exacting, fair, thorough, and pedagogically rigorous university professor.
@@ -440,10 +552,10 @@ Return ONLY a valid JSON object matching this schema:
   "suggestions": string[],
   "promptInjectionSuspected": boolean
 }`,
-          },
-          {
-            role: 'user',
-            content: `STUDENT SUBMISSION EVALUATION REQUEST:
+    },
+    {
+      role: 'user',
+      content: `STUDENT SUBMISSION EVALUATION REQUEST:
 File: ${submissionFileName}
 
 TEACHER'S QUESTION TO BE EVALUATED:
@@ -455,14 +567,42 @@ STUDENT'S SUBMISSION TEXT (Extracted from PDF):
 """
 ${submissionContent.slice(0, 45000)}
 """`,
-          },
-        ],
+    },
+  ]
+
+  let rawJsonResult: string | null = null
+
+  // Tier 1: Local LLM (Ollama) if available
+  if (config.useLocalLlm) {
+    try {
+      rawJsonResult = await callLocalLlm(evalMessages, 0.1, true)
+    } catch (err: any) {
+      console.warn('[AI Service] Local LLM evaluation notice:', err?.message || err)
+    }
+  }
+
+  // Tier 2: Groq Cloud API fallback
+  if (!rawJsonResult && client) {
+    try {
+      const completion = await callGroqWithFallback(client, {
+        messages: evalMessages,
         response_format: { type: 'json_object' },
         temperature: 0.1,
         max_tokens: 2048,
       })
+      rawJsonResult = completion.choices[0]?.message?.content || null
+    } catch (err) {
+      console.warn('[AI Service] Groq persona rubric grading failed, using heuristic evaluation:', err)
+    }
+  }
 
-      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}')
+  if (rawJsonResult) {
+    try {
+      let clean = rawJsonResult.trim()
+      if (clean.startsWith('```')) {
+        clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+      }
+      const parsed = JSON.parse(clean)
       const totalAwarded = typeof parsed.marks === 'number'
         ? Math.min(maxMarks, Math.max(0, Math.round(parsed.marks)))
         : Math.round(maxMarks * 0.85)
@@ -514,8 +654,8 @@ ${submissionContent.slice(0, 45000)}
         promptInjectionSuspected: !!parsed.promptInjectionSuspected,
         evaluatedAt: now,
       }
-    } catch (err) {
-      console.warn('[AI Service] Groq persona rubric grading failed, using heuristic evaluation:', err)
+    } catch (parseErr: any) {
+      console.warn('[AI Service] Failed to parse LLM grading output, using heuristic fallback:', parseErr?.message || parseErr)
     }
   }
 
