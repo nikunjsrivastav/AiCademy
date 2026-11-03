@@ -78,7 +78,24 @@ export const AgentControlCenter: React.FC = () => {
     setLoading(true)
     try {
       const data = await getAgentPolicy(courseId)
-      setPolicy(data)
+      const normalized: AgentPolicy = {
+        courseId: data?.courseId || courseId,
+        enabledAgents: data?.enabledAgents || (data as any)?.activeAgents || {
+          orchestrator: true,
+          ingestion: true,
+          grader: true,
+          tutor: true,
+          question_quality: true,
+          insights: true,
+          study_coach: true,
+        },
+        autoPublish: data?.autoPublish ?? (data as any)?.autoPublishAnnouncements ?? false,
+        confidenceThreshold: data?.confidenceThreshold ?? (data as any)?.minConfidenceGrader ?? 0.85,
+        dailyTokenBudget: data?.dailyTokenBudget ?? 500000,
+        tokensUsedToday: data?.tokensUsedToday ?? (data as any)?.usedTokensToday ?? 0,
+        updatedAt: data?.updatedAt || new Date().toISOString(),
+      }
+      setPolicy(normalized)
     } catch {
       setPolicy({
         courseId,
@@ -241,14 +258,14 @@ export const AgentControlCenter: React.FC = () => {
               <div className="p-4 rounded-[8px] bg-chalk border border-mist space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-ink">Approval Confidence Threshold</span>
-                  <Badge variant="brand">{(policy.confidenceThreshold * 100).toFixed(0)}%</Badge>
+                  <Badge variant="brand">{(((policy.confidenceThreshold ?? 0.85)) * 100).toFixed(0)}%</Badge>
                 </div>
                 <input
                   type="range"
                   min="0.5"
                   max="0.99"
                   step="0.01"
-                  value={policy.confidenceThreshold}
+                  value={policy.confidenceThreshold ?? 0.85}
                   onChange={(e) =>
                     setPolicy({ ...policy, confidenceThreshold: parseFloat(e.target.value) })
                   }
@@ -273,7 +290,7 @@ export const AgentControlCenter: React.FC = () => {
                 </div>
                 <span className="text-xs font-mono font-bold text-accent">
                   {(policy.tokensUsedToday || 0).toLocaleString()} /{' '}
-                  {policy.dailyTokenBudget.toLocaleString()} tokens
+                  {(policy.dailyTokenBudget || 500000).toLocaleString()} tokens
                 </span>
               </div>
               <div className="w-full bg-mist/60 h-2 rounded-full overflow-hidden">
@@ -282,7 +299,7 @@ export const AgentControlCenter: React.FC = () => {
                   style={{
                     width: `${Math.min(
                       100,
-                      ((policy.tokensUsedToday || 0) / policy.dailyTokenBudget) * 100
+                      ((policy.tokensUsedToday || 0) / (policy.dailyTokenBudget || 500000)) * 100
                     )}%`,
                   }}
                 />
@@ -304,7 +321,7 @@ export const AgentControlCenter: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
               {AGENT_LIST.map((agent) => {
-                const isEnabled = policy.enabledAgents[agent.id]
+                const isEnabled = policy.enabledAgents ? Boolean(policy.enabledAgents[agent.id]) : true
                 return (
                   <div
                     key={agent.id}

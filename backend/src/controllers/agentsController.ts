@@ -164,26 +164,46 @@ export async function decideApproval(req: AuthenticatedRequest, res: Response) {
 export async function getPolicy(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
   let policy = db.agentPolicies.get(courseId)
+  const defaultAgents = {
+    orchestrator: true,
+    ingestion: true,
+    grader: true,
+    tutor: true,
+    question_quality: true,
+    insights: true,
+    study_coach: true,
+  }
+
   if (!policy) {
     policy = {
       courseId,
       autonomyLevel: 'semi',
-      minConfidenceGrader: 0.75,
+      minConfidenceGrader: 0.85,
       minConfidenceTutor: 0.6,
       autoPublishAnnouncements: false,
-      dailyTokenBudget: 250000,
-      usedTokensToday: 12000,
-      activeAgents: {
-        orchestrator: true,
-        ingestion: true,
-        grader: true,
-        tutor: true,
-        question_quality: true,
-        insights: true,
-        study_coach: true,
-      },
-    }
-    db.agentPolicies.set(courseId, policy)
+      dailyTokenBudget: 500000,
+      usedTokensToday: 0,
+      activeAgents: defaultAgents,
+      // Frontend client compatibility fields:
+      enabledAgents: defaultAgents,
+      confidenceThreshold: 0.85,
+      autoPublish: false,
+      tokensUsedToday: 0,
+      updatedAt: new Date().toISOString(),
+    } as any
+    db.agentPolicies.set(courseId, policy as AgentPolicy)
+  } else {
+    const p = policy as any
+    p.enabledAgents = p.enabledAgents || p.activeAgents || defaultAgents
+    p.activeAgents = p.enabledAgents
+    p.confidenceThreshold = p.confidenceThreshold ?? p.minConfidenceGrader ?? 0.85
+    p.minConfidenceGrader = p.confidenceThreshold
+    p.autoPublish = p.autoPublish ?? p.autoPublishAnnouncements ?? false
+    p.autoPublishAnnouncements = p.autoPublish
+    p.tokensUsedToday = p.tokensUsedToday ?? p.usedTokensToday ?? 0
+    p.usedTokensToday = p.tokensUsedToday
+    p.dailyTokenBudget = p.dailyTokenBudget ?? 500000
+    p.updatedAt = p.updatedAt || new Date().toISOString()
   }
   return res.json(policy)
 }
@@ -193,11 +213,11 @@ export async function updatePolicy(req: AuthenticatedRequest, res: Response) {
   const policy = db.agentPolicies.get(courseId) || {
     courseId,
     autonomyLevel: 'semi',
-    minConfidenceGrader: 0.75,
+    minConfidenceGrader: 0.85,
     minConfidenceTutor: 0.6,
     autoPublishAnnouncements: false,
-    dailyTokenBudget: 250000,
-    usedTokensToday: 12000,
+    dailyTokenBudget: 500000,
+    usedTokensToday: 0,
     activeAgents: {
       orchestrator: true,
       ingestion: true,
@@ -210,6 +230,14 @@ export async function updatePolicy(req: AuthenticatedRequest, res: Response) {
   }
 
   Object.assign(policy, req.body)
+  const p = policy as any
+  if (p.enabledAgents) p.activeAgents = p.enabledAgents
+  if (p.activeAgents) p.enabledAgents = p.activeAgents
+  if (p.confidenceThreshold !== undefined) p.minConfidenceGrader = p.confidenceThreshold
+  if (p.autoPublish !== undefined) p.autoPublishAnnouncements = p.autoPublish
+  if (p.tokensUsedToday !== undefined) p.usedTokensToday = p.tokensUsedToday
+  p.updatedAt = new Date().toISOString()
+
   db.agentPolicies.set(courseId, policy)
   return res.json(policy)
 }

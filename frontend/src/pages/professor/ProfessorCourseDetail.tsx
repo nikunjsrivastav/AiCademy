@@ -590,140 +590,153 @@ export const ProfessorCourseDetail: React.FC = () => {
             </Button>
           </div>
 
-          {/* Assignment Selector Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {assignments.map((asg) => (
-              <button
-                key={asg.id}
-                onClick={() => setSelectedAsg(asg)}
-                className={`px-3.5 py-2 rounded-[8px] text-xs font-bold transition-all shrink-0 cursor-pointer border ${
-                  selectedAsg?.id === asg.id
-                    ? 'bg-accent text-white border-accent shadow-xs'
-                    : 'bg-white text-ink border-mist hover:border-slate-300'
-                }`}
-              >
-                {asg.title}
-              </button>
-            ))}
-          </div>
-
-          {/* Selected Assignment Submissions Roster */}
-          {selectedAsg && (
-            <Card padding="standard" className="border border-mist space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-mist pb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[4px] bg-accent-soft text-accent">
-                      {selectedAsg.classification}
-                    </span>
-                    <h3 className="text-base font-bold text-ink">{selectedAsg.title}</h3>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Max Marks: {selectedAsg.maxMarks} • Due {new Date(selectedAsg.dueDate).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-slate-400">
-                    {submissions.length} Submissions Received
-                  </span>
-                </div>
+          {/* Assignments Content */}
+          {assignments.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="w-8 h-8 text-accent" />}
+              title="No Assignments Created Yet"
+              description="Create assignments with custom rubric criteria. The autonomous Rubric Grader Agent will assess student submissions against your defined benchmarks."
+              actionLabel="Create First Assignment"
+              onAction={() => setIsCreateAsgOpen(true)}
+            />
+          ) : (
+            <>
+              {/* Assignment Selector Pills */}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {assignments.map((asg) => (
+                  <button
+                    key={asg.id}
+                    onClick={() => setSelectedAsg(asg)}
+                    className={`px-3.5 py-2 rounded-[8px] text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                      selectedAsg?.id === asg.id
+                        ? 'bg-accent text-white border-accent shadow-xs'
+                        : 'bg-white text-ink border-mist hover:border-slate-300'
+                    }`}
+                  >
+                    {asg.title}
+                  </button>
+                ))}
               </div>
 
-              {/* Submissions Table */}
-              {loadingSubs ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : submissions.length === 0 ? (
-                <EmptyState
-                  icon={<FileText className="w-8 h-8 text-accent" />}
-                  title="No Submissions Yet"
-                  description="Students enrolled in this course have not submitted work for this assignment."
-                />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-chalk text-slate-500 uppercase tracking-wider border-b border-mist">
-                      <tr>
-                        <th className="py-3 px-4 font-semibold">Student</th>
-                        <th className="py-3 px-4 font-semibold">File / Version</th>
-                        <th className="py-3 px-4 font-semibold">Submitted At</th>
-                        <th className="py-3 px-4 font-semibold">AI Evaluation (D9)</th>
-                        <th className="py-3 px-4 font-semibold">Final Grade</th>
-                        <th className="py-3 px-4 font-semibold text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-mist">
-                      {submissions.map((sub) => {
-                        const studentUser = students.find((s) => s.id === sub.studentId)
-                        const isGraded = sub.evaluationStatus === 'graded'
+              {/* Selected Assignment Submissions Roster */}
+              {selectedAsg && (
+                <Card padding="standard" className="border border-mist space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-mist pb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[4px] bg-accent-soft text-accent">
+                          {selectedAsg.classification}
+                        </span>
+                        <h3 className="text-base font-bold text-ink">{selectedAsg.title}</h3>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Max Marks: {selectedAsg.maxMarks} • Due {new Date(selectedAsg.dueDate).toLocaleDateString()}
+                      </p>
+                    </div>
 
-                        return (
-                          <tr key={sub.id} className="hover:bg-chalk/50">
-                            <td className="py-3.5 px-4 font-bold text-ink">
-                              {studentUser?.name || sub.studentId}
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-slate-600">
-                              {sub.fileName} <Badge variant="neutral">v{sub.version}</Badge>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500">
-                              {new Date(sub.submittedAt).toLocaleDateString()}
-                              {sub.late && <Badge variant="danger">Late</Badge>}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              {sub.aiEvaluation ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-accent">
-                                    {sub.aiEvaluation.totalMarks}/{selectedAsg.maxMarks}
-                                  </span>
-                                  {typeof sub.aiEvaluation.confidence === 'object' && sub.aiEvaluation.confidence !== null ? (
-                                    <ConfidenceBadge
-                                      confidence={{
-                                        score: (sub.aiEvaluation.confidence as any).score ?? 0.9,
-                                        level: (sub.aiEvaluation.confidence as any).level ?? 'high',
-                                      }}
-                                    />
-                                  ) : (
-                                    <Badge variant="success">
-                                      {Math.round((Number(sub.aiEvaluation.confidence) || 0.9) * 100)}% Confidence
-                                    </Badge>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-slate-400">Evaluating...</span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 font-bold">
-                              {isGraded ? (
-                                <span className="text-emerald-600">{sub.marks}/{selectedAsg.maxMarks}</span>
-                              ) : (
-                                <Badge variant="warning">Awaiting Review (D12)</Badge>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setGradingSub(sub)
-                                  setOverrideMarks(sub.marks ?? sub.aiEvaluation?.totalMarks ?? 85)
-                                  setOverrideFeedback(sub.feedback || sub.aiEvaluation?.feedback || '')
-                                }}
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                {isGraded ? 'Override Score' : 'Review & Finalize'}
-                              </Button>
-                            </td>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-slate-400">
+                        {submissions.length} Submissions Received
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Submissions Table */}
+                  {loadingSubs ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ) : submissions.length === 0 ? (
+                    <EmptyState
+                      icon={<FileText className="w-8 h-8 text-accent" />}
+                      title="No Submissions Yet"
+                      description="Students enrolled in this course have not submitted work for this assignment."
+                    />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-chalk text-slate-500 uppercase tracking-wider border-b border-mist">
+                          <tr>
+                            <th className="py-3 px-4 font-semibold">Student</th>
+                            <th className="py-3 px-4 font-semibold">File / Version</th>
+                            <th className="py-3 px-4 font-semibold">Submitted At</th>
+                            <th className="py-3 px-4 font-semibold">AI Evaluation (D9)</th>
+                            <th className="py-3 px-4 font-semibold">Final Grade</th>
+                            <th className="py-3 px-4 font-semibold text-right">Actions</th>
                           </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody className="divide-y divide-mist">
+                          {submissions.map((sub) => {
+                            const studentUser = students.find((s) => s.id === sub.studentId)
+                            const isGraded = sub.evaluationStatus === 'graded'
+
+                            return (
+                              <tr key={sub.id} className="hover:bg-chalk/50">
+                                <td className="py-3.5 px-4 font-bold text-ink">
+                                  {studentUser?.name || sub.studentId}
+                                </td>
+                                <td className="py-3.5 px-4 font-mono text-slate-600">
+                                  {sub.fileName} <Badge variant="neutral">v{sub.version}</Badge>
+                                </td>
+                                <td className="py-3.5 px-4 text-slate-500">
+                                  {new Date(sub.submittedAt).toLocaleDateString()}
+                                  {sub.late && <Badge variant="danger">Late</Badge>}
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  {sub.aiEvaluation ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-accent">
+                                        {sub.aiEvaluation.totalMarks}/{selectedAsg.maxMarks}
+                                      </span>
+                                      {typeof sub.aiEvaluation.confidence === 'object' && sub.aiEvaluation.confidence !== null ? (
+                                        <ConfidenceBadge
+                                          confidence={{
+                                            score: (sub.aiEvaluation.confidence as any).score ?? 0.9,
+                                            level: (sub.aiEvaluation.confidence as any).level ?? 'high',
+                                          }}
+                                        />
+                                      ) : (
+                                        <Badge variant="success">
+                                          {Math.round((Number(sub.aiEvaluation.confidence) || 0.9) * 100)}% Confidence
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">Evaluating...</span>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 font-bold">
+                                  {isGraded ? (
+                                    <span className="text-emerald-600">{sub.marks}/{selectedAsg.maxMarks}</span>
+                                  ) : (
+                                    <Badge variant="warning">Awaiting Review (D12)</Badge>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 text-right">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setGradingSub(sub)
+                                      setOverrideMarks(sub.marks ?? sub.aiEvaluation?.totalMarks ?? 85)
+                                      setOverrideFeedback(sub.feedback || sub.aiEvaluation?.feedback || '')
+                                    }}
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    {isGraded ? 'Override Score' : 'Review & Finalize'}
+                                  </Button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
               )}
-            </Card>
+            </>
           )}
         </div>
       )}
@@ -742,30 +755,38 @@ export const ProfessorCourseDetail: React.FC = () => {
             />
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-chalk text-slate-500 uppercase tracking-wider border-b border-mist">
-                <tr>
-                  <th className="py-3 px-4 font-semibold">Student Name</th>
-                  <th className="py-3 px-4 font-semibold">Email</th>
-                  <th className="py-3 px-4 font-semibold">Student Number</th>
-                  <th className="py-3 px-4 font-semibold text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-mist">
-                {filteredStudents.map((s) => (
-                  <tr key={s.id} className="hover:bg-chalk/50">
-                    <td className="py-3.5 px-4 font-bold text-ink">{s.name}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">{s.email}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">{s.profile?.studentNumber || '—'}</td>
-                    <td className="py-3.5 px-4 text-right">
-                      <Badge variant="success">Active</Badge>
-                    </td>
+          {filteredStudents.length === 0 ? (
+            <EmptyState
+              icon={<Users className="w-8 h-8 text-accent" />}
+              title="No Students Enrolled Yet"
+              description={`Share enrollment code "${course.enrollmentCode}" with your students so they can join this course.`}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-chalk text-slate-500 uppercase tracking-wider border-b border-mist">
+                  <tr>
+                    <th className="py-3 px-4 font-semibold">Student Name</th>
+                    <th className="py-3 px-4 font-semibold">Email</th>
+                    <th className="py-3 px-4 font-semibold">Student Number</th>
+                    <th className="py-3 px-4 font-semibold text-right">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-mist">
+                  {filteredStudents.map((s) => (
+                    <tr key={s.id} className="hover:bg-chalk/50">
+                      <td className="py-3.5 px-4 font-bold text-ink">{s.name}</td>
+                      <td className="py-3.5 px-4 font-mono text-slate-500">{s.email}</td>
+                      <td className="py-3.5 px-4 font-mono text-slate-500">{s.profile?.studentNumber || '—'}</td>
+                      <td className="py-3.5 px-4 text-right">
+                        <Badge variant="success">Active</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 
@@ -844,22 +865,32 @@ export const ProfessorCourseDetail: React.FC = () => {
             </Button>
           </div>
 
-          <div className="space-y-4">
-            {announcements.map((anc) => (
-              <Card key={anc.id} padding="standard" className="border border-mist space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-ink">{anc.title || 'Announcement'}</h3>
-                  <span className="text-xs text-slate-400 font-mono">
-                    {new Date(anc.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{anc.content}</p>
-                <div className="pt-2 border-t border-mist text-xs text-slate-500 font-mono">
-                  {anc.comments?.length || 0} student replies
-                </div>
-              </Card>
-            ))}
-          </div>
+          {announcements.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquare className="w-8 h-8 text-accent" />}
+              title="No Announcements Published Yet"
+              description="Share lecture notes, exam guidelines, or schedule updates with the class."
+              actionLabel="Publish First Announcement"
+              onAction={() => setIsCreateAncOpen(true)}
+            />
+          ) : (
+            <div className="space-y-4">
+              {announcements.map((anc) => (
+                <Card key={anc.id} padding="standard" className="border border-mist space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-ink">{anc.title || 'Announcement'}</h3>
+                    <span className="text-xs text-slate-400 font-mono">
+                      {new Date(anc.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{anc.content}</p>
+                  <div className="pt-2 border-t border-mist text-xs text-slate-500 font-mono">
+                    {anc.comments?.length || 0} student replies
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -887,32 +918,42 @@ export const ProfessorCourseDetail: React.FC = () => {
             </Button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-chalk text-slate-500 uppercase tracking-wider border-b border-mist">
-                <tr>
-                  <th className="py-3 px-4 font-semibold">Rank</th>
-                  <th className="py-3 px-4 font-semibold">Student</th>
-                  <th className="py-3 px-4 font-semibold">Assignments (50%)</th>
-                  <th className="py-3 px-4 font-semibold">Projects (30%)</th>
-                  <th className="py-3 px-4 font-semibold">Doubts (20%)</th>
-                  <th className="py-3 px-4 font-semibold text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-mist font-mono">
-                {(leaderboard?.entries || []).map((e) => (
-                  <tr key={e.studentId} className="hover:bg-chalk/50">
-                    <td className="py-3 px-4 font-bold text-ink">#{e.rank}</td>
-                    <td className="py-3 px-4 font-sans text-ink">{e.studentName}</td>
-                    <td className="py-3 px-4 text-slate-600">{e.assignmentScore}%</td>
-                    <td className="py-3 px-4 text-slate-600">{e.projectScore}%</td>
-                    <td className="py-3 px-4 text-slate-600">{e.doubtScore}%</td>
-                    <td className="py-3 px-4 text-right font-bold text-accent text-sm">{e.total}%</td>
+          {(leaderboard?.entries || []).length === 0 ? (
+            <EmptyState
+              icon={<Award className="w-8 h-8 text-accent" />}
+              title="No Rankings Computed Yet"
+              description="Rankings compute automatically using the weighted D3 formula (50% Assignments, 30% Projects, 20% Doubts) as students participate."
+              actionLabel="Compute Initial Snapshot"
+              onAction={handleRecomputeLeaderboard}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-chalk text-slate-500 uppercase tracking-wider border-b border-mist">
+                  <tr>
+                    <th className="py-3 px-4 font-semibold">Rank</th>
+                    <th className="py-3 px-4 font-semibold">Student</th>
+                    <th className="py-3 px-4 font-semibold">Assignments (50%)</th>
+                    <th className="py-3 px-4 font-semibold">Projects (30%)</th>
+                    <th className="py-3 px-4 font-semibold">Doubts (20%)</th>
+                    <th className="py-3 px-4 font-semibold text-right">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-mist font-mono">
+                  {(leaderboard?.entries || []).map((e) => (
+                    <tr key={e.studentId} className="hover:bg-chalk/50">
+                      <td className="py-3 px-4 font-bold text-ink">#{e.rank}</td>
+                      <td className="py-3 px-4 font-sans text-ink">{e.studentName}</td>
+                      <td className="py-3 px-4 text-slate-600">{e.assignmentScore}%</td>
+                      <td className="py-3 px-4 text-slate-600">{e.projectScore}%</td>
+                      <td className="py-3 px-4 text-slate-600">{e.doubtScore}%</td>
+                      <td className="py-3 px-4 text-right font-bold text-accent text-sm">{e.total}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 

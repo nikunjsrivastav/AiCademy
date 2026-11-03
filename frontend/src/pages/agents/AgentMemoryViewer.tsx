@@ -180,13 +180,17 @@ export const AgentMemoryViewer: React.FC = () => {
                 <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-mono font-bold px-2 py-0.5 bg-accent-soft text-accent rounded-[4px]">
-                      {mem.scope}
+                      {mem.scope || (mem as any).category || 'course'}
                     </span>
                     <span className="text-xs text-slate-400">
-                      Agent: {mem.sourceAgent}
+                      Agent: {mem.sourceAgent || 'orchestrator'}
                     </span>
                     <span className="text-xs text-slate-400 font-mono">
-                      {new Date(mem.updatedAt).toLocaleDateString()}
+                      {mem.updatedAt
+                        ? new Date(mem.updatedAt).toLocaleDateString()
+                        : (mem as any).createdAt
+                        ? new Date((mem as any).createdAt).toLocaleDateString()
+                        : 'Recent'}
                     </span>
                   </div>
 

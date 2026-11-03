@@ -190,12 +190,12 @@ export const InsightsCopilot: React.FC = () => {
               <div className="space-y-1 flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-ink">
-                    Primary Friction Identified: {insights.weakTopic}
+                    Primary Friction Identified: {insights.weakTopic || 'Foundational Concepts'}
                   </h3>
-                  <Badge variant="warning">{insights.dropPercentage}% Score Drop</Badge>
+                  <Badge variant="warning">{insights.dropPercentage || 0}% Score Drop</Badge>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  {insights.observation}
+                  {insights.observation || 'Analysis shows steady student progression across course topics.'}
                 </p>
               </div>
             </div>
@@ -237,10 +237,10 @@ export const InsightsCopilot: React.FC = () => {
 
                 <div className="p-3.5 rounded-[8px] bg-accent-soft/30 border border-accent/20 text-xs text-ink leading-relaxed space-y-2">
                   <p className="font-bold">
-                    Title: Revision Lab: {insights.weakTopic}
+                    Title: Revision Lab: {insights.weakTopic || 'Core Review'}
                   </p>
                   <p className="text-slate-600">
-                    {insights.suggestedAnnouncement}
+                    {insights.suggestedAnnouncement || 'We will conduct a targeted review workshop during next class.'}
                   </p>
                 </div>
               </div>
