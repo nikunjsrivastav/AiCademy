@@ -278,6 +278,12 @@ export const StudentCourses: React.FC = () => {
               maxLength={6}
               value={enrollCode}
               onChange={(e) => handleCodeChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && previewCourse && !previewCourse.isEnrolled && !isLookingUp) {
+                  e.preventDefault()
+                  handleEnrollSubmit()
+                }
+              }}
               className="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] px-4 py-3 bg-surface border-2 border-line rounded-[8px] text-fg uppercase focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               autoFocus
             />

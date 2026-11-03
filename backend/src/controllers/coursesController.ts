@@ -62,7 +62,11 @@ export async function lookupCourse(req: AuthenticatedRequest, res: Response) {
     return res.status(404).json({ code: 'COURSE_NOT_FOUND', message: 'No course found with that enrollment code' })
   }
 
-  return res.json(enrichCourse(course, req.user?.id))
+  const enriched = enrichCourse(course, req.user?.id)
+  return res.json({
+    course: enriched,
+    ...enriched,
+  })
 }
 
 export async function getCourse(req: AuthenticatedRequest, res: Response) {
@@ -126,7 +130,12 @@ export async function enrollCourse(req: AuthenticatedRequest, res: Response) {
 
   course.studentIds.push(user.id)
   await db.saveCourse(course)
-  return res.json(enrichCourse(course, user.id))
+  const enriched = enrichCourse(course, user.id)
+  return res.json({
+    message: `Successfully enrolled in ${course.code} - ${course.name}`,
+    course: enriched,
+    ...enriched,
+  })
 }
 
 export async function getCourseStudents(req: AuthenticatedRequest, res: Response) {
@@ -146,7 +155,10 @@ export async function getCourseStudents(req: AuthenticatedRequest, res: Response
     })
   )
 
-  return res.json(students.filter(Boolean))
+  const clean = students.filter(Boolean)
+  return res.json({
+    students: clean,
+  })
 }
 
 export async function regenerateCode(req: AuthenticatedRequest, res: Response) {
