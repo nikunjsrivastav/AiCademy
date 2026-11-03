@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "AiCademy Express Backend API - Digital Classroom Platform",
   "main": "dist/server.js",
-  "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",

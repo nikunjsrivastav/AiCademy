@@ -40,3 +40,5 @@ app.get(['/health', '/api/health'], async (_req, res) => {
 // Error Handling
 app.use(errorHandler)
 
+export default app
+
