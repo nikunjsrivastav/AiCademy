@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   FileText,
@@ -71,8 +71,26 @@ export const StudentCourseDetail: React.FC = () => {
   const { user } = useAuth()
   const { showToast } = useToast()
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') as 'materials' | 'assignments' | 'tutor' | 'announcements' | 'leaderboard' | null
   const [course, setCourse] = useState<CourseWithDetails | null>(null)
-  const [activeTab, setActiveTab] = useState<'materials' | 'assignments' | 'tutor' | 'announcements' | 'leaderboard'>('materials')
+  const [activeTab, setActiveTabState] = useState<'materials' | 'assignments' | 'tutor' | 'announcements' | 'leaderboard'>(
+    initialTab && ['materials', 'assignments', 'tutor', 'announcements', 'leaderboard'].includes(initialTab)
+      ? initialTab
+      : 'materials'
+  )
+
+  const setActiveTab = useCallback((tab: 'materials' | 'assignments' | 'tutor' | 'announcements' | 'leaderboard') => {
+    setActiveTabState(tab)
+    setSearchParams({ tab }, { replace: true })
+  }, [setSearchParams])
+
+  useEffect(() => {
+    const tab = searchParams.get('tab') as 'materials' | 'assignments' | 'tutor' | 'announcements' | 'leaderboard' | null
+    if (tab && ['materials', 'assignments', 'tutor', 'announcements', 'leaderboard'].includes(tab)) {
+      setActiveTabState(tab)
+    }
+  }, [searchParams])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
