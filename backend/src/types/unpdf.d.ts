@@ -15,3 +15,4 @@ declare module 'unpdf' {
 
   export function getMeta(data: Uint8Array | ArrayBuffer): Promise<any>
 }
+
