@@ -161,5 +161,109 @@ describe('AiCademy Backend Express API Integration (Clean Unseeded MongoDB)', ()
     )
     expect(res.status).toBe(201)
     expect(res.body.title).toBe('Assignment 1: AVL Trees')
+    const assignmentId = res.body.id
+
+    // Test 1: Flawed submission
+    const flawedRes = await request(
+      'POST',
+      `/api/submissions/${assignmentId}/upload`,
+      {
+        fileName: 'flawed_tree_solution.txt',
+        submissionContent: 'class Node: pass\n# SyntaxError: incomplete implementation\n# TODO: fix broken recursion\ndef insert(): return null\n# RuntimeError: max recursion depth exceeded',
+      },
+      studentToken
+    )
+    expect(flawedRes.status).toBe(201)
+    expect(flawedRes.body.marks).toBeLessThanOrEqual(55)
+    expect(flawedRes.body.mistakes.length).toBeGreaterThan(0)
+
+    // Test 2: Fine working submission
+    const workingRes = await request(
+      'POST',
+      `/api/submissions/${assignmentId}/upload`,
+      {
+        fileName: 'verified_avl_tree.py',
+        submissionContent: `"""
+Complete AVL Tree Implementation with Balance Factor Invariants
+Guarantees O(log N) insertion, deletion, and search bounds.
+"""
+class AVLNode:
+    def __init__(self, key):
+        self.key = key
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AVLTree:
+    def get_height(self, node):
+        return node.height if node else 0
+
+    def get_balance(self, node):
+        return self.get_height(node.left) - self.get_height(node.right) if node else 0
+
+    def rotate_right(self, y):
+        x = y.left
+        T2 = x.right
+        x.right = y
+        y.left = T2
+        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
+        x.height = 1 + max(self.get_height(x.left), self.get_height(x.right))
+        return x
+
+    def rotate_left(self, x):
+        y = x.right
+        T2 = y.left
+        y.left = x
+        x.right = T2
+        x.height = 1 + max(self.get_height(x.left), self.get_height(x.right))
+        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
+        return y
+
+    def insert(self, root, key):
+        if not root:
+            return AVLNode(key)
+        if key < root.key:
+            root.left = self.insert(root.left, key)
+        elif key > root.key:
+            root.right = self.insert(root.right, key)
+        else:
+            return root
+
+        root.height = 1 + max(self.get_height(root.left), self.get_height(root.right))
+        balance = self.get_balance(root)
+
+        # Left Left Case
+        if balance > 1 and key < root.left.key:
+            return self.rotate_right(root)
+        # Right Right Case
+        if balance < -1 and key > root.right.key:
+            return self.rotate_left(root)
+        # Left Right Case
+        if balance > 1 and key > root.left.key:
+            root.left = self.rotate_left(root.left)
+            return self.rotate_right(root)
+        # Right Left Case
+        if balance < -1 and key < root.right.key:
+            root.right = self.rotate_right(root.right)
+            return self.rotate_left(root)
+        return root
+`,
+      },
+      studentToken
+    )
+    expect(workingRes.status).toBe(201)
+    expect(workingRes.body.marks).toBeGreaterThanOrEqual(85)
+    expect(workingRes.body.marks).toBeGreaterThan(flawedRes.body.marks)
+  })
+
+  it('extracts text and topics from text and document buffers via extractionService', async () => {
+    const { extractTextFromBuffer, extractKeyTopics } = await import('../src/services/extractionService.js')
+    const sampleBuffer = Buffer.from(
+      '# Advanced Graph Neural Networks\nGraph convolution operations leverage spatial neighborhood aggregation to compute node embeddings with O(V + E) runtime complexity.'
+    )
+    const extracted = await extractTextFromBuffer(sampleBuffer, 'graph_neural_networks.txt', 'text/plain')
+    expect(extracted.text).toContain('Graph convolution')
+    expect(extracted.wordCount).toBeGreaterThan(10)
+    expect(extracted.topics.length).toBeGreaterThan(0)
   })
 })

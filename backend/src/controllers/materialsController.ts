@@ -1,9 +1,11 @@
 import type { Response } from 'express'
+import fs from 'node:fs'
 import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Material, MaterialType } from '../types/index.js'
 import { uploadFileToStorage } from '../services/storageService.js'
 import { vectorEngine } from '../services/vectorService.js'
+import { extractTextFromBuffer } from '../services/extractionService.js'
 
 export async function listMaterials(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
@@ -57,11 +59,28 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
     mimeType = uploadRes.mimeType
   }
 
+  let extractedTopics = [title.split(' ')[0] || 'Core', 'Concepts', 'Course Material']
+  let extractedDoc = null
+
+  if (file) {
+    const fileBuffer = file.buffer || (file.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
+    if (fileBuffer) {
+      try {
+        extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, mimeType)
+        if (extractedDoc.topics.length > 0) {
+          extractedTopics = extractedDoc.topics
+        }
+      } catch (err) {
+        console.warn(`[Materials] Topic extraction warning on ${originalName}:`, err)
+      }
+    }
+  }
+
   const newMaterial: Material = {
     id: `mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     courseId,
     title,
-    description,
+    description: description || (extractedDoc?.text ? extractedDoc.text.slice(0, 300) : ''),
     type: matType,
     fileUrl,
     fileName: originalName,
@@ -70,9 +89,9 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
     uploaderId: user.id,
     indexing: {
       status: 'indexed',
-      chunkCount: Math.max(12, Math.floor(fileSize / 1500)),
+      chunkCount: Math.max(8, extractedDoc?.pageCount ? extractedDoc.pageCount * 4 : Math.floor(fileSize / 1500)),
       chunkSize: 800,
-      topics: [title.split(' ')[0] || 'Core', 'Concepts', 'Course Material'],
+      topics: extractedTopics,
       lastIndexedAt: new Date().toISOString(),
     },
     createdAt: new Date().toISOString(),
@@ -86,7 +105,7 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
     newMaterial.id,
     newMaterial.title,
     newMaterial.indexing.topics,
-    description
+    newMaterial.description
   )
 
   return res.status(201).json(newMaterial)

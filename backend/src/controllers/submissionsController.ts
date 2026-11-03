@@ -6,6 +6,7 @@ import type { Submission } from '../types/index.js'
 import { evaluateSubmissionWithAI } from '../services/aiService.js'
 import { uploadFileToStorage } from '../services/storageService.js'
 import { vectorEngine } from '../services/vectorService.js'
+import { extractTextFromBuffer } from '../services/extractionService.js'
 
 export async function uploadSubmission(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
@@ -73,23 +74,26 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     similarity: m.similarity,
   }))
 
-  // 2. Submission content extraction (buffer on disk or memory)
+  // 2. Comprehensive submission content & topic extraction
   let submissionContent = body.submissionContent || body.content || ''
   const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
-  if (!submissionContent && fileBuffer) {
-    const isText =
-      /text|plain|json|javascript|typescript|python|markdown|html/i.test(file?.mimetype || '') ||
-      /\.(txt|md|py|js|ts|jsx|tsx|json|c|cpp|java|sql|sh)$/i.test(originalName)
-    if (isText) {
-      submissionContent = fileBuffer.toString('utf-8').slice(0, 8000)
-    } else {
-      const rawStr = fileBuffer.toString('ascii')
-      const printable = rawStr.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim()
-      if (printable.length > 100) {
-        submissionContent = printable.slice(0, 5000)
+  let extractedDoc = null
+
+  if (fileBuffer) {
+    try {
+      extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, file?.mimetype)
+      if (extractedDoc && extractedDoc.text && extractedDoc.text.length > 10) {
+        submissionContent = extractedDoc.text
       }
+    } catch (extractErr) {
+      console.warn(`[Submissions] Extraction warning on ${originalName}:`, extractErr)
     }
   }
+
+  if (!submissionContent && fileBuffer) {
+    submissionContent = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 10000))
+  }
+
   if (!submissionContent) {
     submissionContent = `[Submitted File: ${originalName} (${Math.round(fileSize / 1024)} KB, format: ${ext}) for assignment "${assignment.title}"]`
   }

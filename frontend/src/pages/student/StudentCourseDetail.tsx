@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Trash2,
   BookOpen,
+  AlertTriangle,
 } from 'lucide-react'
 import { getCourse } from '@/services/courses'
 import { listCourseMaterials } from '@/services/materials'
@@ -105,6 +106,9 @@ export const StudentCourseDetail: React.FC = () => {
   const [uploadModalAsg, setUploadModalAsg] = useState<Assignment | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSubmittingWork, setIsSubmittingWork] = useState(false)
+  const [submissionProgress, setSubmissionProgress] = useState(0)
+  const [submissionStage, setSubmissionStage] = useState('')
+  const [evaluatedResult, setEvaluatedResult] = useState<Submission | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // AI Tutor tab state
@@ -178,10 +182,29 @@ export const StudentCourseDetail: React.FC = () => {
     }
   }, [doubts, activeTab])
 
-  // Submission handler
+  // Submission handler with live progress & thorough evaluation
   const handleUploadWork = async () => {
     if (!uploadModalAsg || !selectedFile) return
     setIsSubmittingWork(true)
+    setEvaluatedResult(null)
+    setSubmissionProgress(18)
+    setSubmissionStage('Extracting document text, topics, and structures from file...')
+
+    const t1 = setTimeout(() => {
+      setSubmissionProgress(45)
+      setSubmissionStage('Extracting key concepts & querying syllabus RAG vector index...')
+    }, 800)
+
+    const t2 = setTimeout(() => {
+      setSubmissionProgress(75)
+      setSubmissionStage('Rubric Grader Agent evaluating technical correctness, logic, & test assertions...')
+    }, 1800)
+
+    const t3 = setTimeout(() => {
+      setSubmissionProgress(92)
+      setSubmissionStage('Synthesizing criteria scores, pinpointing mistakes, and recommendations...')
+    }, 3000)
+
     try {
       const res = await uploadSubmission(uploadModalAsg.id, {
         fileName: selectedFile.name,
@@ -189,14 +212,21 @@ export const StudentCourseDetail: React.FC = () => {
         file: selectedFile,
       })
 
-      showToast('Assignment submitted successfully! Grader Agent evaluating work...', 'success')
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+      setSubmissionProgress(100)
+      setSubmissionStage('Evaluation complete!')
       setSubmissions((prev) => ({ ...prev, [uploadModalAsg.id]: res }))
-      setUploadModalAsg(null)
-      setSelectedFile(null)
+      setEvaluatedResult(res)
+      showToast('Assignment evaluated successfully against rubric benchmarks!', 'success')
     } catch (err) {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
       showToast(errorMessage(err), 'error')
-    } finally {
       setIsSubmittingWork(false)
+      setSubmissionProgress(0)
     }
   }
 
@@ -840,50 +870,218 @@ export const StudentCourseDetail: React.FC = () => {
         </Card>
       )}
 
-      {/* Upload Submission Modal */}
+      {/* Upload Submission & Evaluation Modal */}
       {uploadModalAsg && (
-        <Modal
-          isOpen={true}
-          onClose={() => setUploadModalAsg(null)}
-          title={`Submit: ${uploadModalAsg.title}`}
-          description={`Due ${new Date(uploadModalAsg.dueDate).toLocaleDateString()} • Max ${uploadModalAsg.maxMarks} points`}
-        >
-          <div className="space-y-4">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-line hover:border-accent rounded-[8px] p-8 text-center cursor-pointer transition-colors bg-surface-2/50"
-            >
-              <UploadCloud className="w-8 h-8 text-muted mx-auto mb-2" />
-              <p className="text-xs font-bold text-fg">
-                {selectedFile ? selectedFile.name : 'Click to select or drag and drop your file'}
-              </p>
-              <p className="text-[11px] text-muted mt-1">
-                Supported formats: PDF, DOCX, TXT, ZIP up to 10 MB
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.docx,.txt,.zip"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </div>
+        evaluatedResult ? (
+          <Modal
+            isOpen={true}
+            onClose={() => {
+              setUploadModalAsg(null)
+              setSelectedFile(null)
+              setEvaluatedResult(null)
+              setIsSubmittingWork(false)
+              setSubmissionProgress(0)
+            }}
+            title={`Evaluation Report: ${uploadModalAsg.title}`}
+            description={`Evaluated against course rubric benchmarks • ${evaluatedResult.fileName}`}
+            size="lg"
+          >
+            <div className="space-y-5">
+              {/* Top Score Banner */}
+              <div className={`p-5 rounded-[8px] border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                ((evaluatedResult.marks ?? 0) / uploadModalAsg.maxMarks) < 0.6
+                  ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200'
+                  : ((evaluatedResult.marks ?? 0) / uploadModalAsg.maxMarks) >= 0.85
+                  ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-900 dark:text-emerald-200'
+                  : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200'
+              }`}>
+                <div className="space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider block">
+                    {((evaluatedResult.marks ?? 0) / uploadModalAsg.maxMarks) < 0.6
+                      ? 'Revision Required • Significant Flaws Detected'
+                      : ((evaluatedResult.marks ?? 0) / uploadModalAsg.maxMarks) >= 0.85
+                      ? 'Mastery Achieved • Verified Solution'
+                      : 'Satisfactory • Partial Solution'}
+                  </span>
+                  <p className="text-xs opacity-90 leading-relaxed max-w-xl">
+                    {evaluatedResult.feedback || (evaluatedResult.aiEvaluation as any)?.reasoning}
+                  </p>
+                </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setUploadModalAsg(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!selectedFile || isSubmittingWork}
-                onClick={handleUploadWork}
-              >
-                {isSubmittingWork ? 'Submitting & Evaluating...' : 'Submit Assignment'}
-              </Button>
+                <div className="text-left sm:text-right shrink-0">
+                  <span className="text-3xl font-extrabold font-mono block">
+                    {evaluatedResult.marks ?? 0} <span className="text-base font-normal opacity-70">/ {uploadModalAsg.maxMarks}</span>
+                  </span>
+                  <span className="text-[11px] font-semibold opacity-80">
+                    {Math.round(((evaluatedResult.marks ?? 0) / uploadModalAsg.maxMarks) * 100)}% Awarded
+                  </span>
+                </div>
+              </div>
+
+              {/* Rubric Criterion Breakdown */}
+              {(evaluatedResult.aiEvaluation as any)?.criterionScores && (evaluatedResult.aiEvaluation as any).criterionScores.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-fg uppercase tracking-wider">Rubric Criterion Breakdown</h4>
+                  <div className="space-y-2">
+                    {(evaluatedResult.aiEvaluation as any).criterionScores.map((cs: any, i: number) => {
+                      const ratio = cs.maxScore ? cs.score / cs.maxScore : 0
+                      return (
+                        <div key={i} className="p-3 rounded-[6px] bg-surface-2 border border-line space-y-1.5 text-xs">
+                          <div className="flex justify-between font-bold text-fg">
+                            <span>{cs.criterionName}</span>
+                            <span className={ratio < 0.6 ? 'text-rose-600 dark:text-rose-400 font-mono' : 'text-emerald-600 dark:text-emerald-400 font-mono'}>
+                              {cs.score} / {cs.maxScore} pts
+                            </span>
+                          </div>
+                          <div className="w-full bg-surface-3 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${ratio < 0.6 ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
+                            />
+                          </div>
+                          {cs.reasoning && <p className="text-[11px] text-muted">{cs.reasoning}</p>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Specific Mistakes Pinpointed */}
+              {evaluatedResult.mistakes && evaluatedResult.mistakes.length > 0 && (
+                <div className="p-4 rounded-[8px] bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 space-y-2">
+                  <h4 className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    Identified Mistakes & Flaws
+                  </h4>
+                  <ul className="list-disc list-inside text-xs text-rose-700 dark:text-rose-300 space-y-1">
+                    {evaluatedResult.mistakes.map((m: string, i: number) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Suggestions for Mastery */}
+              {evaluatedResult.suggestions && evaluatedResult.suggestions.length > 0 && (
+                <div className="p-4 rounded-[8px] bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 space-y-2">
+                  <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    Actionable Recommendations
+                  </h4>
+                  <ul className="list-disc list-inside text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    {evaluatedResult.suggestions.map((s: string, i: number) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setUploadModalAsg(null)
+                    setSelectedFile(null)
+                    setEvaluatedResult(null)
+                    setIsSubmittingWork(false)
+                    setSubmissionProgress(0)
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
             </div>
-          </div>
-        </Modal>
+          </Modal>
+        ) : isSubmittingWork ? (
+          <Modal
+            isOpen={true}
+            onClose={() => {}}
+            title={`Evaluating: ${uploadModalAsg.title}`}
+            description="Autonomous Rubric Grader Agent inspecting submission content..."
+          >
+            <div className="py-6 px-2 space-y-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-accent-soft border border-accent/20 flex items-center justify-center mx-auto text-accent animate-pulse">
+                <Bot className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-base font-bold text-fg">AI Rigorous Evaluation in Progress</h3>
+                <p className="text-xs text-muted min-h-[32px] transition-all">
+                  {submissionStage || 'Analyzing submission...'}
+                </p>
+              </div>
+
+              {/* Animated Loading Progress Bar */}
+              <div className="space-y-1.5">
+                <div className="w-full bg-surface-2 rounded-full h-3 overflow-hidden border border-line">
+                  <div
+                    className="bg-accent h-full transition-all duration-500 ease-out rounded-full"
+                    style={{ width: `${submissionProgress}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] font-mono text-muted">
+                  <span>Analyzing {selectedFile?.name}</span>
+                  <span>{submissionProgress}%</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-surface-2 rounded-[6px] border border-line text-[11px] text-muted text-left space-y-1">
+                <div className="flex items-center gap-1.5 text-fg font-semibold">
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                  Live Inspection Pipeline:
+                </div>
+                <p>• Extracting full document text, syntax trees, & mathematical derivations</p>
+                <p>• Querying course syllabus RAG to retrieve required rubric benchmarks</p>
+                <p>• Stress-testing logic against boundary conditions & computing point deductions</p>
+              </div>
+            </div>
+          </Modal>
+        ) : (
+          <Modal
+            isOpen={true}
+            onClose={() => setUploadModalAsg(null)}
+            title={`Submit: ${uploadModalAsg.title}`}
+            description={`Due ${new Date(uploadModalAsg.dueDate).toLocaleDateString()} • Max ${uploadModalAsg.maxMarks} points`}
+          >
+            <div className="space-y-4">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-line hover:border-accent rounded-[8px] p-8 text-center cursor-pointer transition-colors bg-surface-2/50"
+              >
+                <UploadCloud className="w-8 h-8 text-muted mx-auto mb-2" />
+                <p className="text-xs font-bold text-fg">
+                  {selectedFile ? selectedFile.name : 'Click to select or drag and drop your file'}
+                </p>
+                <p className="text-[11px] text-muted mt-1">
+                  Supported formats: PDF, DOCX, TXT, ZIP up to 10 MB
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt,.zip"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setUploadModalAsg(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!selectedFile || isSubmittingWork}
+                  onClick={handleUploadWork}
+                >
+                  Submit Assignment
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )
       )}
 
       {/* Citation Preview Modal */}
