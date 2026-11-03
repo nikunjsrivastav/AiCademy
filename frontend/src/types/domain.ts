@@ -169,6 +169,8 @@ export interface AIEvaluation {
   /** e.g. "possible_prompt_injection", "borderline" */
   flags?: string[]
   createdAt?: ISODate
+  topicIdentified?: string
+  topicAlignment?: 'high' | 'moderate' | 'low' | 'off_topic'
 }
 
 export interface Submission {

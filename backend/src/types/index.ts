@@ -110,6 +110,8 @@ export interface AiEvaluation {
   promptInjectionSuspected?: boolean
   criticNotes?: string
   evaluatedAt: string
+  topicIdentified?: string
+  topicAlignment?: 'high' | 'moderate' | 'low' | 'off_topic'
 }
 
 export interface Submission {

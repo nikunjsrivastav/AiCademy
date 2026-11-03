@@ -914,6 +914,30 @@ export const StudentCourseDetail: React.FC = () => {
                 </div>
               </div>
 
+              {/* RAG Topic & Content Grounding Banner */}
+              {((evaluatedResult.aiEvaluation as any)?.topicIdentified || (evaluatedResult as any).topicIdentified) && (
+                <div className="flex items-center justify-between gap-3 p-3 bg-accent-soft/60 border border-accent/25 rounded-[8px] text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Sparkles className="w-4 h-4 text-accent shrink-0" />
+                    <span className="font-semibold text-fg">Topic Identified via RAG:</span>
+                    <span className="text-accent font-medium truncate">
+                      {(evaluatedResult.aiEvaluation as any)?.topicIdentified || (evaluatedResult as any).topicIdentified}
+                    </span>
+                  </div>
+                  {((evaluatedResult.aiEvaluation as any)?.topicAlignment || (evaluatedResult as any).topicAlignment) && (
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0 ${
+                      ((evaluatedResult.aiEvaluation as any)?.topicAlignment || (evaluatedResult as any).topicAlignment) === 'high'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : ((evaluatedResult.aiEvaluation as any)?.topicAlignment || (evaluatedResult as any).topicAlignment) === 'moderate'
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                    }`}>
+                      Alignment: {String((evaluatedResult.aiEvaluation as any)?.topicAlignment || (evaluatedResult as any).topicAlignment)}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Rubric Criterion Breakdown */}
               {(evaluatedResult.aiEvaluation as any)?.criterionScores && (evaluatedResult.aiEvaluation as any).criterionScores.length > 0 && (
                 <div className="space-y-2">

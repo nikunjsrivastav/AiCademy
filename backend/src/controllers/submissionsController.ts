@@ -48,8 +48,32 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
   const existing = existingList.filter((s) => s.studentId === user.id)
   const version = existing.length + 1
 
-  // 1. Topic Extraction & Syllabus RAG Retrieval (Option A In-Process Vector Engine)
-  // Ensure vector engine has course chunks if serverless instance is cold
+  // 1. Comprehensive submission content & text extraction
+  let submissionContent = body.submissionContent || body.content || ''
+  const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
+  let extractedDoc = null
+
+  if (fileBuffer) {
+    try {
+      extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, file?.mimetype)
+      if (extractedDoc && extractedDoc.text && extractedDoc.text.length > 10) {
+        submissionContent = extractedDoc.text
+      }
+      console.log(`[Submissions] Extracted ${extractedDoc?.wordCount || 0} words from ${originalName} (format: ${extractedDoc?.format})`)
+    } catch (extractErr) {
+      console.warn(`[Submissions] Extraction warning on ${originalName}:`, extractErr)
+    }
+  }
+
+  if (!submissionContent && fileBuffer) {
+    submissionContent = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 10000))
+  }
+
+  if (!submissionContent) {
+    submissionContent = `[Submitted File: ${originalName} (${Math.round(fileSize / 1024)} KB, format: ${ext}) for assignment "${assignment.title}"]`
+  }
+
+  // 2. Topic Search & Syllabus RAG Retrieval (Option A In-Process Vector Engine)
   const courseMaterials = await db.getMaterialsByCourse(assignment.courseId)
   if (vectorEngine.getChunkCount(assignment.courseId) === 0 && courseMaterials.length > 0) {
     courseMaterials.forEach((m) =>
@@ -65,7 +89,9 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
 
   const criteriaList = assignment.rubricCriteria || (assignment as any).rubric || []
   const criteriaText = criteriaList.map((c: any) => c.name || c.title || '').join(' ')
-  const topicQuery = `${assignment.title} ${assignment.description || ''} ${criteriaText}`
+  const extractedKeywords = extractedDoc?.topics?.join(' ') || ''
+  const snippet = submissionContent.slice(0, 300)
+  const topicQuery = `${assignment.title} ${assignment.description || ''} ${extractedKeywords} ${snippet}`
   const topicMatches = vectorEngine.search(assignment.courseId, topicQuery, 4)
   const retrievedTopicChunks = topicMatches.map((m) => ({
     materialTitle: m.chunk.materialTitle,
@@ -73,30 +99,6 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     text: m.chunk.text,
     similarity: m.similarity,
   }))
-
-  // 2. Comprehensive submission content & topic extraction
-  let submissionContent = body.submissionContent || body.content || ''
-  const fileBuffer = file?.buffer || (file?.path && fs.existsSync(file.path) ? fs.readFileSync(file.path) : null)
-  let extractedDoc = null
-
-  if (fileBuffer) {
-    try {
-      extractedDoc = await extractTextFromBuffer(fileBuffer, originalName, file?.mimetype)
-      if (extractedDoc && extractedDoc.text && extractedDoc.text.length > 10) {
-        submissionContent = extractedDoc.text
-      }
-    } catch (extractErr) {
-      console.warn(`[Submissions] Extraction warning on ${originalName}:`, extractErr)
-    }
-  }
-
-  if (!submissionContent && fileBuffer) {
-    submissionContent = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 10000))
-  }
-
-  if (!submissionContent) {
-    submissionContent = `[Submitted File: ${originalName} (${Math.round(fileSize / 1024)} KB, format: ${ext}) for assignment "${assignment.title}"]`
-  }
 
   // 3. Evaluate via Groq Academic Professor Persona with Syllabus RAG Grounding
   const aiEval = await evaluateSubmissionWithAI({
