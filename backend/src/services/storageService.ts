@@ -28,19 +28,34 @@ export async function uploadFileToStorage(
   // Check if Vercel Blob is configured
   if (config.blobToken && buffer) {
     try {
-      const blob = await put(blobPath, buffer, {
-        access: 'public',
-        token: config.blobToken,
-      })
-
-      return {
-        url: blob.url,
-        fileName: file.originalname,
-        fileSize,
-        mimeType,
+      let blob: any = null
+      try {
+        blob = await put(blobPath, buffer, {
+          access: 'public',
+          token: config.blobToken,
+        })
+      } catch (publicErr: any) {
+        const msg = String(publicErr?.message || '')
+        if (msg.includes('private access') || msg.includes('private store')) {
+          console.log('[Storage Service] Blob store is private, retrying with store-native access...')
+          blob = await put(blobPath, buffer, {
+            token: config.blobToken,
+          } as any)
+        } else {
+          throw publicErr
+        }
       }
-    } catch (err) {
-      console.warn('[Storage Service] Vercel Blob upload failed, falling back to local disk:', err)
+
+      if (blob?.url) {
+        return {
+          url: blob.url,
+          fileName: file.originalname,
+          fileSize,
+          mimeType,
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Storage Service] Vercel Blob upload notice (using local storage):', err?.message || err)
     }
   }
 

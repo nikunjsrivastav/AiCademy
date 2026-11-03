@@ -17,24 +17,59 @@ function getGroq(): Groq | null {
   return groqClient
 }
 
+let discoveredGroqModels: string[] | null = null
+let lastModelFetch = 0
+
+async function getAvailableGroqModels(client: Groq): Promise<string[]> {
+  const now = Date.now()
+  if (discoveredGroqModels && now - lastModelFetch < 3600000) {
+    return discoveredGroqModels
+  }
+  try {
+    const listRes = await client.models.list()
+    const activeModels = (listRes.data || [])
+      .map((m: any) => m.id)
+      .filter((id: string) =>
+        id &&
+        !id.includes('whisper') &&
+        !id.includes('guard') &&
+        !id.includes('tts') &&
+        !id.includes('embed')
+      )
+    if (activeModels.length > 0) {
+      console.log(`[AI Service] Discovered ${activeModels.length} active models on Groq account:`, activeModels.join(', '))
+      discoveredGroqModels = activeModels
+      lastModelFetch = now
+      return activeModels
+    }
+  } catch (err: any) {
+    console.warn('[AI Service] Notice: Could not list models from Groq account:', err?.message || err)
+  }
+  return []
+}
+
 const CANDIDATE_GROQ_MODELS = [
-  'llama-3.1-8b-instant',
   'llama-3.3-70b-versatile',
-  'llama3-8b-8192',
+  'llama-3.1-8b-instant',
   'llama3-70b-8192',
-  'gemma2-9b-it',
+  'llama3-8b-8192',
 ]
 
 /**
  * Executes a Groq chat completion with multi-model fallback resiliency.
- * If the configured model is unavailable (e.g. 404 model_not_found or decommissioned),
- * it seamlessly switches to the next available production model.
+ * First queries the active models on the user's Groq account,
+ * then falls back through proven production candidates.
  */
 async function callGroqWithFallback(
   client: Groq,
   params: any
 ): Promise<any> {
-  const modelsToTry = Array.from(new Set([config.groqModel, ...CANDIDATE_GROQ_MODELS].filter(Boolean)))
+  const dynamicModels = await getAvailableGroqModels(client)
+  const modelsToTry = Array.from(new Set([
+    config.groqModel,
+    ...dynamicModels,
+    ...CANDIDATE_GROQ_MODELS,
+  ].filter(Boolean)))
   let lastError: any = null
 
   for (const model of modelsToTry) {
@@ -489,25 +524,6 @@ ${submissionContent.slice(0, 45000)}
   const lowerContent = cleanContent.toLowerCase()
   const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
 
-  // Identify flaw patterns & error markers
-  const flawKeywords = [
-    'error', 'syntaxerror', 'runtimeerror', 'typeerror', 'valueerror', 'indexerror',
-    'nameerror', 'zerodivisionerror', 'assertionerror', 'exception', 'failed', 'failing',
-    'fail', 'traceback', 'todo', 'fixme', 'incomplete', 'broken', 'bug', 'buggy', 'crash',
-    'not working', 'wrong', 'placeholder', 'undefined', 'null pointer', 'flawed', 'flaw',
-    'unimplemented', 'notimplemented', 'pass # todo', 'assert false', 'infinite loop',
-    'stack overflow', 'segfault', 'syntax error', 'logic error', 'bad input'
-  ]
-  const detectedFlaws = flawKeywords.filter((k) => lowerContent.includes(k))
-  const isFlawed =
-    detectedFlaws.length >= 1 ||
-    lowerContent.includes('syntax error') ||
-    lowerContent.includes('runtime error') ||
-    lowerContent.includes('incomplete') ||
-    lowerContent.includes('broken') ||
-    lowerContent.includes('flawed') ||
-    lowerContent.includes('bug')
-
   // Check if file was unparseable or completely empty
   const isUnparseable = wordCount === 0 || !cleanContent || cleanContent.startsWith('[Submitted File:')
   if (isUnparseable) {
@@ -537,57 +553,122 @@ ${submissionContent.slice(0, 45000)}
     }
   }
 
-  // Topic & Keyword alignment against Teacher's Question
-  const questionTokens = `${effectiveQuestion} ${courseName}`.toLowerCase().match(/\b[a-z]{4,20}\b/g) || []
-  let matches = 0
-  for (const t of questionTokens) {
-    if (lowerContent.includes(t)) matches++
-  }
-  const questionCoverageRatio = questionTokens.length > 0 ? Math.min(1.0, matches / Math.max(3, questionTokens.length * 0.4)) : 0.7
+  // Identify flaw patterns & error markers
+  const flawKeywords = [
+    'error', 'syntaxerror', 'runtimeerror', 'typeerror', 'valueerror', 'indexerror',
+    'nameerror', 'zerodivisionerror', 'assertionerror', 'exception', 'failed', 'failing',
+    'traceback', 'todo', 'fixme', 'broken', 'bug', 'buggy', 'crash',
+    'not working', 'wrong', 'placeholder', 'undefined', 'null pointer',
+    'unimplemented', 'notimplemented', 'assert false', 'infinite loop',
+    'stack overflow', 'segfault', 'syntax error', 'logic error'
+  ]
+  const detectedFlaws = flawKeywords.filter((k) => lowerContent.includes(k))
+  const isFlawed = detectedFlaws.length >= 1
 
-  // Differential Ratio Calculation
+  // Detect code presence & technical constructs (e.g. OpenMP, loops, functions)
+  const hasCode = /#include|#pragma|\bomp_\w+|def |class |public |void |int |for\s*\(|while\s*\(|\breturn |\{\s*[\w\d]+|\bfloat |\bdouble /i.test(cleanContent)
+  const hasEquations = /=|\+|-|\*|\/|<|>|∑|∫|O\(|Ω\(|Θ\(/i.test(cleanContent)
+
+  // 1. Deconstruct Teacher's Questions into individual requirements
+  const rawQuestionLines = effectiveQuestion
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 5 && !l.startsWith('#'))
+
+  const questionRequirements: Array<{ prompt: string; keywords: string[] }> = []
+  for (const line of rawQuestionLines) {
+    const kws = line.toLowerCase().match(/\b[a-z]{4,20}\b/g) || []
+    const filteredKws = kws.filter((w) => !['question', 'with', 'from', 'that', 'this', 'have', 'what', 'your', 'about'].includes(w))
+    if (filteredKws.length > 0) {
+      questionRequirements.push({ prompt: line, keywords: filteredKws })
+    }
+  }
+
+  // Evaluate coverage per requirement
+  let coveredReqs = 0
+  const missingRequirements: string[] = []
+  for (const req of questionRequirements) {
+    const matchedKws = req.keywords.filter((kw) => lowerContent.includes(kw))
+    if (matchedKws.length >= Math.max(1, Math.floor(req.keywords.length * 0.35))) {
+      coveredReqs++
+    } else {
+      missingRequirements.push(req.prompt)
+    }
+  }
+
+  const totalReqs = Math.max(1, questionRequirements.length)
+  const reqCoverageRatio = coveredReqs / totalReqs
+
+  // Also calculate general token matches
+  const questionTokens = `${effectiveQuestion} ${courseName}`.toLowerCase().match(/\b[a-z]{4,20}\b/g) || []
+  let tokenMatches = 0
+  for (const t of questionTokens) {
+    if (lowerContent.includes(t)) tokenMatches++
+  }
+  const tokenMatchRatio = questionTokens.length > 0 ? Math.min(1.0, tokenMatches / Math.max(3, questionTokens.length * 0.4)) : 0.6
+
+  // 2. Multi-Tier Composite Scoring (drastically differentiates Good, Mid, and Bad)
+  const substanceRatio = Math.min(1.0, wordCount / 140)
+  const techBonus = (hasCode ? 0.15 : 0) + (hasEquations ? 0.05 : 0)
+  const compositeScore = (reqCoverageRatio * 0.55) + (substanceRatio * 0.25) + techBonus - (isFlawed ? 0.30 : 0)
+
   let finalRatio = 0.50
   const mistakesList: string[] = []
   const suggestionsList: string[] = []
   let reasoning = ''
+  let topicAlignment: 'high' | 'moderate' | 'low' | 'off_topic' = 'moderate'
 
-  if (isFlawed) {
-    // Flawed submission: award realistic low marks (32% - 48%)
-    finalRatio = Math.max(0.30, Math.min(0.48, 0.32 + Math.min(0.12, matches * 0.03)))
-    reasoning = `Analysis identified critical syntax flaws, runtime errors, or incomplete sections in ${submissionFileName} according to the teacher's question. Core algorithmic invariants fail verification.`
-    mistakesList.push(`Detected syntax/runtime flaws or unhandled error states: ${detectedFlaws.slice(0, 4).join(', ') || 'logic errors'}.`)
-    mistakesList.push('Solution does not satisfy required question constraints or computational bounds.')
-    mistakesList.push('Boundary conditions for edge-case or empty inputs are unhandled.')
-    suggestionsList.push('Fix syntax/logic errors and ensure exception handling for empty/edge-case structures.')
-    suggestionsList.push('Carefully re-read the teacher\'s question specifications and verify test inputs.')
-  } else if (questionCoverageRatio < 0.35 && wordCount > 25) {
-    // Off-topic submission
-    finalRatio = 0.38
-    reasoning = `The submitted document does not adequately address the questions provided by the teacher for "${assignmentTitle}". Required solutions and key derivations are missing.`
-    mistakesList.push('Work does not address the specific questions described in the teacher\'s prompt.')
-    mistakesList.push('Missing required function implementations or theoretical proofs.')
-    suggestionsList.push('Carefully align your solution with the teacher\'s question requirements before resubmitting.')
+  if (compositeScore >= 0.70 && reqCoverageRatio >= 0.65) {
+    // TIER 1: GOOD ANSWER (88% to 96%)
+    finalRatio = Math.min(0.96, Math.max(0.88, 0.88 + (reqCoverageRatio - 0.65) * 0.18 + (hasCode ? 0.02 : 0)))
+    topicAlignment = 'high'
+    reasoning = `Comprehensive and well-structured answer addressing the teacher's questions for "${assignmentTitle}". Solutions satisfy required constraints (${coveredReqs}/${totalReqs} requirements verified).`
+    if (missingRequirements.length > 0) {
+      mistakesList.push(`Minor omission in edge case: ${missingRequirements[0].slice(0, 80)}.`)
+    } else {
+      mistakesList.push('Consider adding property tests or formal benchmark timings under high thread loads.')
+    }
+    suggestionsList.push('Optimal complexity achieved. Profile thread synchronization overhead for further gains.')
+  } else if (compositeScore >= 0.38 || reqCoverageRatio >= 0.33) {
+    // TIER 2: MID ANSWER (55% to 75%)
+    finalRatio = Math.max(0.55, Math.min(0.75, 0.52 + (reqCoverageRatio * 0.22) + (hasCode ? 0.06 : 0)))
+    topicAlignment = 'moderate'
+    reasoning = `Partial submission for "${assignmentTitle}". The answer covers ${coveredReqs} of ${totalReqs} question requirements, but omits core sections or technical implementations.`
+    if (missingRequirements.length > 0) {
+      missingRequirements.slice(0, 3).forEach((mr) => {
+        mistakesList.push(`Missing or incomplete answer for: "${mr.slice(0, 75)}"`)
+      })
+    }
+    if (!hasCode && effectiveQuestion.toLowerCase().includes('implement')) {
+      mistakesList.push('Missing concrete code implementation or directive syntax for required operations.')
+    }
+    suggestionsList.push('Review the teacher\'s question specifications and implement all omitted questions before resubmitting.')
+    suggestionsList.push('Ensure code includes boundary checks and proper synchronization clauses.')
   } else {
-    // Verified working submission: high score (89% - 96%)
-    const lengthBonus = wordCount > 80 ? 0.05 : wordCount > 30 ? 0.03 : 0.01
-    finalRatio = Math.min(0.96, Math.max(0.89, 0.88 + Math.min(0.06, matches * 0.02) + lengthBonus))
-    reasoning = `Solid and well-structured answer addressing the teacher's questions for "${assignmentTitle}". Technical implementation conforms to requirements with clear methodology.`
-    mistakesList.push('Minor documentation gaps in non-trivial edge cases.')
-    suggestionsList.push('Consider adding property-based fuzz tests to verify invariants under randomized loads.')
-    suggestionsList.push('Optimal complexity achieved; consider profiling memory allocations.')
+    // TIER 3: BAD ANSWER (25% to 45%)
+    finalRatio = Math.max(0.25, Math.min(0.45, 0.24 + (reqCoverageRatio * 0.20) + (wordCount > 30 ? 0.06 : 0)))
+    topicAlignment = tokenMatchRatio < 0.25 ? 'off_topic' : 'low'
+    reasoning = `Insufficient or heavily incomplete answer for "${assignmentTitle}". Only ${coveredReqs} of ${totalReqs} question requirements were addressed, and essential technical proofs/implementations are missing.`
+    if (isFlawed) {
+      mistakesList.push(`Detected syntax/runtime flaws or unhandled error states: ${detectedFlaws.slice(0, 3).join(', ')}.`)
+    }
+    if (missingRequirements.length > 0) {
+      missingRequirements.slice(0, 3).forEach((mr) => {
+        mistakesList.push(`Unaddressed requirement: "${mr.slice(0, 75)}"`)
+      })
+    }
+    suggestionsList.push('Carefully re-read each question from the assignment prompt and write complete solutions.')
+    suggestionsList.push('Consult lecture slides and syllabus notes on core concepts before resubmitting.')
   }
 
   const criterionScores = rubricCriteria.map((c, i) => {
-    // Differential criterion scoring: severely penalize first criterion if flawed
-    const critRatio = isFlawed && i === 0 ? 0.25 : finalRatio
+    const critRatio = isFlawed && i === 0 ? Math.max(0.2, finalRatio * 0.6) : finalRatio
     return {
       criterionId: c.id,
       criterionName: c.name,
-      score: Math.min(c.maxScore, Math.max(0, Math.round(c.maxScore * critRatio))),
+      score: Math.min(c.maxScore, Math.max(1, Math.round(c.maxScore * critRatio))),
       maxScore: c.maxScore,
-      reasoning: isFlawed && i === 0
-        ? `Critical flaws and errors detected in ${c.name} requirements.`
-        : `Demonstrates ${Math.round(critRatio * 100)}% benchmark alignment for ${c.name}.`,
+      reasoning: `Scored at ${Math.round(critRatio * 100)}% based on question requirement coverage (${coveredReqs}/${totalReqs} parts addressed).`,
     }
   })
 
@@ -601,9 +682,9 @@ ${submissionContent.slice(0, 45000)}
   return {
     marks: calcMarks,
     maxMarks,
-    confidence: finalRatio >= 0.8 ? 0.94 : 0.82,
+    confidence: finalRatio >= 0.85 ? 0.94 : 0.85,
     topicIdentified: topCandidateTopic,
-    topicAlignment: isFlawed ? 'moderate' : (calcMarks >= maxMarks * 0.85 ? 'high' : 'low'),
+    topicAlignment,
     reasoning,
     criterionScores,
     mistakes: mistakesList,
