@@ -16,9 +16,21 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
   const token = authHeader.split(' ')[1]
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as { id: string }
+    const decoded = jwt.verify(token, config.jwtSecret) as { id: string; email?: string; role?: Role; name?: string }
     const user = await db.getUser(decoded.id)
     if (!user) {
+      if (decoded.id && decoded.email && decoded.role) {
+        req.user = {
+          id: decoded.id,
+          name: decoded.name || decoded.email.split('@')[0],
+          email: decoded.email,
+          role: decoded.role,
+          passwordHash: '',
+          profile: { department: 'General', avatarHue: 200 },
+          createdAt: new Date().toISOString(),
+        }
+        return next()
+      }
       return res.status(401).json({ code: 'INVALID_TOKEN', message: 'User not found' })
     }
     req.user = user

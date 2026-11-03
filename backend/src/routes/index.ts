@@ -103,6 +103,7 @@ apiRouter.get('/agents/memory/:courseId', requireAuth, agentsCtrl.listMemories)
 apiRouter.delete('/agents/memory/:memoryId', requireAuth, agentsCtrl.deleteMemory)
 apiRouter.get('/agents/study-plan/:courseId', requireAuth, agentsCtrl.getStudyPlan)
 apiRouter.get('/agents/insights/:courseId', requireAuth, agentsCtrl.getInsights)
+apiRouter.get('/agents/tools', requireAuth, agentsCtrl.listTools)
 
 // Admin Platform Routes (EXTENSION)
 apiRouter.get('/admin/users', requireAuth, requireRole(['administrator']), adminCtrl.getAdminUsers)

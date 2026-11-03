@@ -75,8 +75,8 @@ export const AgentRunsList: React.FC = () => {
           description: `Manual launch of ${selectedAgent} (${simulationMode})`,
         },
         input: {
-          fileName: 'Advanced_Query_Optimization.pdf',
-          materialId: 'mat_cs301_01',
+          fileName: 'Curriculum_Module.pdf',
+          materialId: 'mat_run_1',
           assignmentId: 'asg_demo_1',
           submissionId: 'sub_demo_1',
           question: 'What is Boyce-Codd Normal Form and how does it prevent anomalies?',

@@ -21,12 +21,22 @@ export interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem('aicademy.user')
+      return cached ? JSON.parse(cached) : null
+    } catch {
+      return null
+    }
+  })
   const [token, setToken] = useState<string | null>(() => tokenStorage.get())
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isLoading, setIsLoading] = useState<boolean>(!tokenStorage.get())
 
   const logout = useCallback(() => {
     tokenStorage.clear()
+    try {
+      localStorage.removeItem('aicademy.user')
+    } catch {}
     setToken(null)
     setUser(null)
   }, [])
@@ -53,10 +63,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await authService.getMe()
         if (mounted) {
           setUser(res.user)
+          try {
+            localStorage.setItem('aicademy.user', JSON.stringify(res.user))
+          } catch {}
           setToken(stored)
         }
-      } catch {
-        if (mounted) {
+      } catch (err: any) {
+        // Only invalidate if the server explicitly reports 401 Unauthorized
+        if (err?.response?.status === 401 && mounted) {
           logout()
         }
       } finally {
@@ -74,6 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await authService.login(req)
       tokenStorage.set(res.token)
+      try {
+        localStorage.setItem('aicademy.user', JSON.stringify(res.user))
+      } catch {}
       setToken(res.token)
       setUser(res.user)
       return res.user
@@ -87,6 +104,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await authService.register(req)
       tokenStorage.set(res.token)
+      try {
+        localStorage.setItem('aicademy.user', JSON.stringify(res.user))
+      } catch {}
       setToken(res.token)
       setUser(res.user)
       return res.user

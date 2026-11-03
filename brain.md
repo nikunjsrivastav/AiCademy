@@ -18,21 +18,22 @@ Pitch: AiCademy combines classroom management with an **agentic AI** layer. Inst
 - Do not copy these docs into brain.md; record only deltas and decisions here.
 
 ## 4. Current Status
-Last updated: 2026-11-01.
-Phase: **Phase 1: Production Readiness & Full-Stack Deployment.** All Milestones 0 through 8 complete, full Express API delivered in `/backend`, and frontend transitioned to clean production mode.
+Last updated: 2026-11-03.
+Phase: **Phase 6 & Final Stage Complete.** All Milestones 0 through 9 complete, Express API in `/backend`, live MongoDB Atlas connection, standalone Python FastAPI microservice in `/ai-service`, all 7 autonomous agents, 13 typed tools, and multi-container Docker Compose delivered.
 
 | # | Milestone | Status |
 |---|---|---|
 | 0 | Docs setup: /docs files, brain.md, AGENTS.md, ROADMAP.md, /backend and /ai-service placeholders | done |
 | 1 | Scaffold (Vite + React + TypeScript), Tailwind v4 design system, app shell, MSW, mock JWT auth, role guards | done |
 | 2 | Course and material flows (create, enroll, materials, upload, indexing badge, reindex) | done |
-| 3 | Mock agent engine, tool registry, Orchestrator, Ingestion Agent, Agent Trace Viewer | done |
+| 3 | Simulated agent engine, tool registry, Orchestrator, Ingestion Agent, Agent Trace Viewer | done |
 | 4 | Assignments, rubric builder, submissions, Grader Agent flow, score override | done |
 | 5 | Tutor chat, Question Quality Agent, Approval Queue | done |
 | 6 | Announcements and comments, leaderboard, analytics, Insights panel, Study Coach, student progress | done |
 | 7 | Agent Control Center, Memory viewer, Runs dashboard, event simulator, admin overview | done |
 | 8 | Extras and polish (command palette, notifications, accessibility, README demo script, tests) | done |
-| 9 | Production Express Backend API, Docker Compose, Demo Removal, and UI consistency | done |
+| 9 | Production Express Backend API, MongoDB Atlas, Vercel Blob, Option A Vector Engine, and RAG Evaluator | done |
+| 10 | Standalone FastAPI `/ai-service`, All EXTENSION Agents & Tools, Refresh Session Resilience, and Docker Compose | done |
 
 What works right now: Complete, end-to-end Phase 0 educational operating system in `/frontend` running on Vite 8 + React 19 + TypeScript (strict) + Tailwind v4.
 1. **Core & Workspaces**: Role-gated workspaces for Student, Professor, and Administrator with persistent JWT auth, DemoRoleSwitcher (11 seed personas), dynamic 12-preset Accent Color engine (`AccentContext`), pre-paint contrast engine, and 4px baseline responsive layout (`PageContainer`, `AppShell` with scroll-locked sidebar, zero mobile overflow).
@@ -190,6 +191,7 @@ Append only. Never rewrite past entries; reverse a decision with a new entry tha
 - **2026-11-03 D37:** Serverless Database Resilience & Page Refresh Auth State. Updated `backend/src/models/db.ts` with singleton `ensureConnected()` and direct MongoDB Atlas lookups (`getUser`, `findUserByEmail`, `getCourse`, `getAllCourses`). Made `requireAuth` async with live DB fallback, mounted `apiRouter` at both `/api` and `/` in `app.ts` to handle rewrite variants, and normalized error response extraction in `frontend/src/services/http.ts`. Resolves serverless cold-start token invalidation and login failures. Pushed to GitHub `main`.
 - **2026-11-03 D38:** Serverless Lambda CommonJS Output Resolution. Configured `backend/tsconfig.json` to compile to CommonJS and removed `"type": "module"` from `backend/package.json`. Resolves Vercel Express Lambda runtime crash `Cannot use import statement outside a module` at `/var/task/app.js` when Vercel serverless launcher runs entrypoints in CommonJS mode. Pushed to GitHub `main`.
 - **2026-11-03 D39:** Unregister MSW Service Worker & Default USE_MOCKS to False. Updated `frontend/src/config.ts` to default `USE_MOCKS = false` across all environments unless explicitly overridden by `VITE_USE_MOCKS === 'true'`. Added automatic unregistration of any lingering `mockServiceWorker.js` in `frontend/src/main.tsx` to prevent cached service workers in user browsers from intercepting network calls with mock data.
+- **2026-11-03 D40:** Delivery of Standalone FastAPI `/ai-service` and All EXTENSION Features. Implemented production `/ai-service` in Python with FastAPI, Pydantic, Groq Llama 3.3, and course-partitioned vector store. Exposed PDF routes (`/ingest-material`, `/evaluate-assignment`, `/ask-doubt-rag`, `/score-doubt-quality`) and EXTENSION agent routes (`/agents/orchestrate`, `/agents/tutor`, `/agents/grade`, `/agents/ingest`, `/agents/insights`, `/agents/coach`, `/agents/tools`). Added client-side auth hydration caching and JWT fallback in `requireAuth` to eliminate page reload logout issues, mounted `/agents/tools` on backend, updated `docker-compose.yml` to orchestrate `mongodb`, `ai-service`, `backend`, and `frontend`, and verified all 8 unit tests in `ai-service/test_service.py`.
 
 ## 13. Known Issues and Tech Debt
 - Everything the mock layer fakes (auth tokens, vector search, embeddings, grading, costs) must be built for real in ROADMAP Phases 1–5. These spots will carry `TODO(backend)` and `TODO(agent-runtime)` comments.

@@ -91,8 +91,8 @@ export const EventSimulator: React.FC = () => {
         input: {
           event: selectedEvent,
           payload: {
-            fileName: 'Distributed_Transactions.pdf',
-            assignmentId: 'asg_cs301_01',
+            fileName: 'Curriculum_Lecture_Notes.pdf',
+            assignmentId: 'asg_sim_1',
             submissionId: 'sub_sim_1',
             question: 'Explain 2-Phase Locking vs Strict 2PL',
           },

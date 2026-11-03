@@ -52,7 +52,7 @@ export async function startRun(req: AuthenticatedRequest, res: Response) {
     agent: agent || 'orchestrator',
     status: 'succeeded',
     trigger: trigger || 'manual_trigger',
-    courseId: courseId || 'course_cs301',
+    courseId: courseId || 'general',
     userId: user.id,
     startedAt: now,
     finishedAt: new Date(Date.now() + 1200).toISOString(),
@@ -320,5 +320,23 @@ export async function getInsights(req: AuthenticatedRequest, res: Response) {
     frequentDoubts,
     suggestedAnnouncement: `Based on recent student inquiries in ${course.code}, we will review key concepts this week. Please bring your questions!`,
   })
+}
+
+export async function listTools(req: AuthenticatedRequest, res: Response) {
+  return res.json([
+    { name: 'vector_search', description: 'Search indexed course materials', parameters: {}, permissionRole: 'all' },
+    { name: 'chunk_and_embed', description: 'Chunk and embed material', parameters: {}, permissionRole: 'professor' },
+    { name: 'extract_text', description: 'Extract plain text from files', parameters: {}, permissionRole: 'professor' },
+    { name: 'run_self_test', description: 'Test vector retrieval fidelity', parameters: {}, permissionRole: 'professor' },
+    { name: 'score_rubric', description: 'Score student submissions against rubrics', parameters: {}, permissionRole: 'professor' },
+    { name: 'check_prompt_injection', description: 'Critic scan for jailbreaks', parameters: {}, permissionRole: 'all' },
+    { name: 'request_human_approval', description: 'Escalate to human review', parameters: {}, permissionRole: 'professor' },
+    { name: 'score_question_quality', description: 'Score question clarity and effort', parameters: {}, permissionRole: 'all' },
+    { name: 'generate_calendar_event', description: 'Generate .ics calendar events', parameters: {}, permissionRole: 'student' },
+    { name: 'aggregate_doubt_trends', description: 'Aggregate question topics', parameters: {}, permissionRole: 'professor' },
+    { name: 'draft_announcement', description: 'Draft announcement from insights', parameters: {}, permissionRole: 'professor' },
+    { name: 'query_student_memory', description: 'Inspect student learning memory', parameters: {}, permissionRole: 'all' },
+    { name: 'update_student_memory', description: 'Update adaptive student traits', parameters: {}, permissionRole: 'all' },
+  ])
 }
 
