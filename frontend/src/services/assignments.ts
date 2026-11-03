@@ -14,6 +14,8 @@ export interface CreateAssignmentPayload {
   dueDate: string
   classification: AssignmentClassification
   topics?: string[]
+  questionText?: string
+  questionFileName?: string
 }
 
 export interface UpdateAssignmentPayload extends Partial<CreateAssignmentPayload> {}

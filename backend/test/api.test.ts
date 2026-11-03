@@ -149,6 +149,8 @@ describe('AiCademy Backend Express API Integration (Clean Unseeded MongoDB)', ()
         courseId,
         title: 'Assignment 1: AVL Trees',
         description: 'Implement AVL insertion and rotations.',
+        questionText: 'Problem Statement: Implement an AVL Tree with balance factor invariants and rotations. Guarantee O(log N) time complexity for insertion and search.',
+        questionFileName: 'assignment_1_avl_questions.txt',
         classification: 'assignment',
         rubricCriteria: [
           { id: 'crit_correct', name: 'Correctness', weight: 50, maxScore: 50 },

@@ -518,6 +518,20 @@ export const StudentCourseDetail: React.FC = () => {
                         {sub?.late && <Badge variant="danger">Late</Badge>}
                       </div>
                       <p className="text-xs text-muted leading-relaxed">{asg.description}</p>
+                      {asg.questionText && (
+                        <div className="p-3 my-2 rounded-[6px] bg-accent-soft/30 border border-accent/20 text-xs space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-fg">
+                            <FileText className="w-3.5 h-3.5 text-accent" />
+                            <span>Teacher's Assignment Question / Problem Statement</span>
+                            {asg.questionFileName && (
+                              <span className="text-[10px] text-muted font-normal">({asg.questionFileName})</span>
+                            )}
+                          </div>
+                          <p className="text-fg font-mono whitespace-pre-wrap text-[11px] max-h-36 overflow-y-auto bg-surface/80 p-2.5 rounded border border-line">
+                            {asg.questionText}
+                          </p>
+                        </div>
+                      )}
                       <p className="text-xs text-muted font-mono flex items-center gap-2">
                         <Clock className="w-3.5 h-3.5" />
                         Due: {new Date(asg.dueDate).toLocaleDateString()} at{' '}
@@ -1055,6 +1069,21 @@ export const StudentCourseDetail: React.FC = () => {
             description={`Due ${new Date(uploadModalAsg.dueDate).toLocaleDateString()} • Max ${uploadModalAsg.maxMarks} points`}
           >
             <div className="space-y-4">
+              {uploadModalAsg.questionText && (
+                <div className="p-3 rounded-[6px] bg-accent-soft/30 border border-accent/20 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-fg">
+                    <FileText className="w-3.5 h-3.5 text-accent" />
+                    <span>Teacher's Assignment Question / Problem Statement</span>
+                    {uploadModalAsg.questionFileName && (
+                      <span className="text-[10px] text-muted font-normal">({uploadModalAsg.questionFileName})</span>
+                    )}
+                  </div>
+                  <p className="text-fg font-mono whitespace-pre-wrap text-[11px] max-h-32 overflow-y-auto bg-surface/80 p-2.5 rounded border border-line">
+                    {uploadModalAsg.questionText}
+                  </p>
+                </div>
+              )}
+
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-line hover:border-accent rounded-[8px] p-8 text-center cursor-pointer transition-colors bg-surface-2/50"

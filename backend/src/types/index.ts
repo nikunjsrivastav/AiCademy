@@ -87,6 +87,8 @@ export interface Assignment {
   dueDate: string
   creatorId: string
   createdAt: string
+  questionText?: string
+  questionFileName?: string
 }
 
 export type EvaluationStatus = 'pending' | 'grading' | 'graded' | 'needs_review'

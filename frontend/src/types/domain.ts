@@ -132,6 +132,8 @@ export interface Assignment {
   updatedAt: ISODate
   /** EXTENSION: topics covered, used by Insights and Study Coach agents. */
   topics?: string[]
+  questionText?: string
+  questionFileName?: string
 }
 
 // ---------------------------------------------------------------------------

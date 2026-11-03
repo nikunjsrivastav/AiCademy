@@ -116,12 +116,14 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     similarity: m.similarity,
   }))
 
-  // 3. Evaluate via Groq Academic Professor Persona with Syllabus RAG Grounding
+  // 3. Evaluate via Groq Academic Professor Persona with Teacher's Question & Syllabus RAG Grounding
+  const assignmentQuestion = assignment.questionText?.trim() || `${assignment.title}\n\n${assignment.description || ''}`
   const aiEval = await evaluateSubmissionWithAI({
     courseCode: course.code,
     courseName: course.name,
     assignmentTitle: assignment.title,
     assignmentDescription: assignment.description,
+    assignmentQuestion,
     rubricCriteria: criteriaList.map((c: any) => ({
       id: c.id,
       name: c.name || c.title || 'Criterion',

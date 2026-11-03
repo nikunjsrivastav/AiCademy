@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Plus,
   Edit3,
+  Upload,
 } from 'lucide-react'
 import { getCourse, updateCourse, listCourseStudents } from '@/services/courses'
 import {
@@ -99,6 +100,9 @@ export const ProfessorCourseDetail: React.FC = () => {
   const [isCreateAsgOpen, setIsCreateAsgOpen] = useState(false)
   const [asgTitle, setAsgTitle] = useState('')
   const [asgDesc, setAsgDesc] = useState('')
+  const [asgQuestionText, setAsgQuestionText] = useState('')
+  const [asgQuestionFileName, setAsgQuestionFileName] = useState('')
+  const questionFileInputRef = useRef<HTMLInputElement>(null)
   const [asgClass, setAsgClass] = useState<'assignment' | 'project'>('assignment')
   const [asgDueDate, setAsgDueDate] = useState('')
   const [rubricRows, setRubricRows] = useState<{ title: string; description: string; maxMarks: number }[]>([
@@ -269,6 +273,22 @@ export const ProfessorCourseDetail: React.FC = () => {
 
   const totalRubricMarks = rubricRows.reduce((acc, cur) => acc + (Number(cur.maxMarks) || 0), 0)
 
+  const handleQuestionFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAsgQuestionFileName(file.name)
+    try {
+      const text = await file.text()
+      if (text && text.trim().length > 0) {
+        setAsgQuestionText(text.trim())
+        showToast(`Loaded question text from ${file.name} (${text.length} chars)`, 'success')
+      }
+    } catch (readErr) {
+      console.warn('Question file read warning:', readErr)
+      showToast('Could not read text from selected file, please paste text directly.', 'error')
+    }
+  }
+
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!courseId || !asgTitle.trim() || !asgDueDate) return
@@ -278,6 +298,8 @@ export const ProfessorCourseDetail: React.FC = () => {
         courseId,
         title: asgTitle.trim(),
         description: asgDesc.trim(),
+        questionText: asgQuestionText.trim() || undefined,
+        questionFileName: asgQuestionFileName || undefined,
         classification: asgClass,
         dueDate: new Date(asgDueDate).toISOString(),
         maxMarks: totalRubricMarks,
@@ -286,6 +308,8 @@ export const ProfessorCourseDetail: React.FC = () => {
       setAssignments((prev) => [created, ...prev])
       setSelectedAsg(created)
       setIsCreateAsgOpen(false)
+      setAsgQuestionText('')
+      setAsgQuestionFileName('')
       showToast('Assignment and Rubric created successfully!', 'success')
     } catch (err) {
       showToast(errorMessage(err), 'error')
@@ -640,6 +664,22 @@ export const ProfessorCourseDetail: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Assignment Question Display */}
+                  {selectedAsg.questionText && (
+                    <div className="p-3 rounded-[6px] bg-accent-soft/30 border border-accent/20 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-fg">
+                        <FileText className="w-3.5 h-3.5 text-accent" />
+                        <span>Assignment Question / Problem Statement</span>
+                        {selectedAsg.questionFileName && (
+                          <span className="text-[10px] text-muted font-normal">({selectedAsg.questionFileName})</span>
+                        )}
+                      </div>
+                      <p className="text-fg font-mono whitespace-pre-wrap text-[11px] max-h-36 overflow-y-auto bg-surface/80 p-2.5 rounded border border-line">
+                        {selectedAsg.questionText}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Submissions Table */}
                   {loadingSubs ? (
@@ -1024,13 +1064,71 @@ export const ProfessorCourseDetail: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-fg mb-1">Description</label>
+              <label className="block text-xs font-semibold text-fg mb-1">Description / Overview</label>
               <textarea
                 rows={2}
                 value={asgDesc}
                 onChange={(e) => setAsgDesc(e.target.value)}
-                placeholder="Instructions and requirements for students..."
+                placeholder="Brief summary of assignment goals..."
                 className="w-full text-xs px-3 py-2 bg-surface-2 border border-line rounded-[6px] text-fg placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+
+            {/* Assignment Question / Problem Statement File & Text */}
+            <div className="space-y-2 p-3 rounded-[8px] bg-accent-soft/30 border border-accent/25">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-fg flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-accent" />
+                    Assignment Question / Problem Statement File
+                  </label>
+                  <p className="text-[11px] text-muted">
+                    Upload a question text file (.txt, .md, code) or type/paste the questions below. The AI Evaluator grades student submissions against this exact question.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => questionFileInputRef.current?.click()}
+                    className="text-xs gap-1"
+                  >
+                    <Upload className="w-3 h-3" />
+                    {asgQuestionFileName ? 'Change File' : 'Upload Question File'}
+                  </Button>
+                  <input
+                    ref={questionFileInputRef}
+                    type="file"
+                    accept=".txt,.md,.pdf,.py,.java,.cpp,.c,.js,.ts"
+                    className="hidden"
+                    onChange={handleQuestionFileUpload}
+                  />
+                </div>
+              </div>
+
+              {asgQuestionFileName && (
+                <div className="flex items-center justify-between gap-2 px-2.5 py-1 bg-surface rounded-[4px] border border-line text-[11px] text-accent">
+                  <span className="truncate font-mono">Loaded from: {asgQuestionFileName}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAsgQuestionFileName('')
+                      setAsgQuestionText('')
+                    }}
+                    className="text-muted hover:text-rose-500 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              <textarea
+                rows={4}
+                value={asgQuestionText}
+                onChange={(e) => setAsgQuestionText(e.target.value)}
+                placeholder={`Example:\nQuestion 1 (40 pts): Implement Dijkstra's algorithm using a min-heap priority queue.\nQuestion 2 (30 pts): Prove the time complexity O((V + E) log V).\nQuestion 3 (30 pts): Edge case analysis with disconnected vertices.`}
+                className="w-full text-xs font-mono px-3 py-2 bg-surface-2 border border-line rounded-[6px] text-fg placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
 

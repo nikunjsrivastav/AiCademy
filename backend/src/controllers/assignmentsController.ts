@@ -48,6 +48,8 @@ export async function createAssignment(req: AuthenticatedRequest, res: Response)
     rubric,
     maxMarks,
     dueDate,
+    questionText,
+    questionFileName,
   } = req.body
 
   const criteriaInput = rubricCriteria || rubric
@@ -85,6 +87,8 @@ export async function createAssignment(req: AuthenticatedRequest, res: Response)
     rubricCriteria: normalizedCriteria,
     maxMarks: maxMarks || 100,
     dueDate,
+    questionText: typeof questionText === 'string' ? questionText.trim() : '',
+    questionFileName: typeof questionFileName === 'string' ? questionFileName.trim() : '',
     creatorId: user.id,
     createdAt: new Date().toISOString(),
   }

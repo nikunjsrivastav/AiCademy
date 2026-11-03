@@ -101,6 +101,8 @@ const AssignmentSchema = new Schema<Assignment>(
         maxScore: Number,
       },
     ],
+    questionText: { type: String, default: '' },
+    questionFileName: { type: String, default: '' },
     createdAt: { type: String, required: true },
   },
   { collection: 'assignments', timestamps: false }

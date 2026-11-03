@@ -15,7 +15,7 @@ export const assignmentHandlers = [
     await latency(80, 180)
 
     const body = (await request.json().catch(() => ({}))) as any
-    const { courseId, title, description, rubric, maxMarks, dueDate, classification, topics } = body
+    const { courseId, title, description, rubric, maxMarks, dueDate, classification, topics, questionText, questionFileName } = body
 
     if (!courseId || !title || !dueDate || !rubric) {
       return errorResponse(400, 'VALIDATION_ERROR', 'Missing required fields for assignment')
@@ -47,6 +47,8 @@ export const assignmentHandlers = [
       courseId,
       title,
       description: description || '',
+      questionText: questionText || '',
+      questionFileName: questionFileName || '',
       rubric: parsedRubric,
       maxMarks: finalMax,
       dueDate,
