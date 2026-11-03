@@ -386,7 +386,7 @@ export class DatabaseStore {
         await UserModel.findOneAndUpdate(
           { id: user.id },
           user,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
         console.log(`[Database] User successfully persisted to Atlas: ${user.email} (${user.id})`)
       } else if (config.mongoUri) {
@@ -408,7 +408,7 @@ export class DatabaseStore {
         await CourseModel.findOneAndUpdate(
           { id: course.id },
           course,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
         console.log(`[Database] Course successfully persisted to Atlas: ${course.code} (${course.id})`)
       } else if (config.mongoUri) {
@@ -580,7 +580,7 @@ export class DatabaseStore {
         await MaterialModel.findOneAndUpdate(
           { id: mat.id },
           mat,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
       }
     } catch (err: any) {
@@ -608,7 +608,7 @@ export class DatabaseStore {
         await AssignmentModel.findOneAndUpdate(
           { id: asg.id },
           asg,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
       }
     } catch (err: any) {
@@ -636,7 +636,7 @@ export class DatabaseStore {
         await SubmissionModel.findOneAndUpdate(
           { id: sub.id },
           sub,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
       }
     } catch (err: any) {
@@ -652,7 +652,7 @@ export class DatabaseStore {
         await DoubtModel.findOneAndUpdate(
           { id: doubt.id },
           doubt,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
       }
     } catch (err: any) {
@@ -668,7 +668,7 @@ export class DatabaseStore {
         await AnnouncementModel.findOneAndUpdate(
           { id: ann.id },
           ann,
-          { upsert: true, new: true, setDefaultsOnInsert: true }
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
         )
       }
     } catch (err: any) {

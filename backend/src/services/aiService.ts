@@ -17,6 +17,48 @@ function getGroq(): Groq | null {
   return groqClient
 }
 
+const CANDIDATE_GROQ_MODELS = [
+  config.groqModel,
+  'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-70b-versatile',
+  'mixtral-8x7b-32768',
+]
+
+/**
+ * Executes a Groq chat completion with multi-model fallback resiliency.
+ * If the configured model is unavailable (e.g. 404 model_not_found),
+ * it seamlessly switches to the next available production model.
+ */
+async function callGroqWithFallback(
+  client: Groq,
+  params: any
+): Promise<any> {
+  const modelsToTry = Array.from(new Set([params.model || config.groqModel, ...CANDIDATE_GROQ_MODELS].filter(Boolean)))
+  let lastError: any = null
+
+  for (const model of modelsToTry) {
+    try {
+      return await client.chat.completions.create({
+        ...params,
+        model,
+      })
+    } catch (err: any) {
+      lastError = err
+      const isNotFound =
+        err?.status === 404 ||
+        err?.error?.code === 'model_not_found' ||
+        (typeof err?.message === 'string' && (err.message.includes('does not exist') || err.message.includes('do not have access')))
+      if (isNotFound) {
+        console.warn(`[AI Service] Groq model '${model}' not available on account (404/model_not_found), falling back to next candidate...`)
+        continue
+      }
+      throw err
+    }
+  }
+  throw lastError
+}
+
 export interface RetrievedChunkContext {
   materialId: string
   materialTitle: string
@@ -72,8 +114,7 @@ export async function askTutorWithAI(params: AskTutorParams): Promise<TutorRespo
         materialContext = 'General university course syllabus'
       }
 
-      const completion = await client.chat.completions.create({
-        model: config.groqModel,
+      const completion = await callGroqWithFallback(client, {
         messages: [
           {
             role: 'system',
@@ -91,7 +132,7 @@ ${materialContext}
           },
         ],
         temperature: 0.2,
-        max_tokens: 800,
+        max_tokens: 1024,
       })
 
       const answerText = completion.choices[0]?.message?.content || ''
@@ -160,8 +201,7 @@ export async function scoreQuestionQualityWithAI(question: string): Promise<Ques
 
   if (client) {
     try {
-      const completion = await client.chat.completions.create({
-        model: config.groqModel,
+      const completion = await callGroqWithFallback(client, {
         messages: [
           {
             role: 'system',
@@ -178,6 +218,7 @@ export async function scoreQuestionQualityWithAI(question: string): Promise<Ques
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
+        max_tokens: 512,
       })
 
       const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}')
@@ -268,8 +309,7 @@ export async function evaluateSubmissionWithAI(params: EvaluateSubmissionParams)
             .join('\n\n')
         : 'Syllabus standards require structural invariants, computational efficiency, and robust edge-case handling.'
 
-      const completion = await client.chat.completions.create({
-        model: config.groqModel,
+      const completion = await callGroqWithFallback(client, {
         messages: [
           {
             role: 'system',

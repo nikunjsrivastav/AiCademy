@@ -28,7 +28,24 @@ if (typeof (globalThis as any).ImageData === 'undefined') {
 }
 
 import zlib from 'node:zlib'
-import { extractText } from 'unpdf'
+
+// Lazy dynamic ESM loader to prevent ERR_REQUIRE_ESM in CommonJS serverless runtimes
+let unpdfModulePromise: Promise<typeof import('unpdf') | null> | null = null
+
+async function getUnpdf(): Promise<typeof import('unpdf') | null> {
+  if (!unpdfModulePromise) {
+    unpdfModulePromise = (async () => {
+      try {
+        const dynamicImport = new Function('specifier', 'return import(specifier)')
+        return (await dynamicImport('unpdf')) as typeof import('unpdf')
+      } catch (err) {
+        console.warn('[Extraction] Dynamic import of unpdf failed:', err)
+        return null
+      }
+    })()
+  }
+  return unpdfModulePromise
+}
 
 export interface ExtractedPage {
   pageNumber: number
@@ -48,6 +65,7 @@ export interface ExtractedDocument {
  * Universal Serverless-Safe PDF Text Extractor.
  * Uses Mozilla PDF.js core via `unpdf` to decode all font dictionaries,
  * LaTeX ToUnicode CMaps, subset fonts, and mathematical symbols word-by-word.
+ * Dynamically imported to comply with CommonJS runtime restrictions on Vercel.
  * Zero native binary dependencies, zero canvas, zero DOMMatrix.
  */
 async function extractTextFromPdf(buffer: Buffer): Promise<{ text: string; pages: ExtractedPage[]; pageCount: number }> {
@@ -56,20 +74,23 @@ async function extractTextFromPdf(buffer: Buffer): Promise<{ text: string; pages
   let pageCount = 1
 
   try {
-    const uint8 = new Uint8Array(buffer)
-    // extractText from unpdf processes the full PDF structure including LaTeX font CMaps
-    const result = await extractText(uint8, { mergePages: false })
-    const rawPages = Array.isArray(result.text) ? result.text : [result.text]
-    pageCount = result.totalPages || rawPages.length || 1
+    const unpdf = await getUnpdf()
+    if (unpdf && typeof unpdf.extractText === 'function') {
+      const uint8 = new Uint8Array(buffer)
+      // extractText from unpdf processes the full PDF structure including LaTeX font CMaps
+      const result = await unpdf.extractText(uint8, { mergePages: false })
+      const rawPages = Array.isArray(result.text) ? result.text : [result.text]
+      pageCount = result.totalPages || rawPages.length || 1
 
-    rawPages.forEach((pText: any, i: number) => {
-      const cleaned = (typeof pText === 'string' ? pText : '').trim()
-      if (cleaned) {
-        pages.push({ pageNumber: i + 1, text: cleaned })
-      }
-    })
+      rawPages.forEach((pText: any, i: number) => {
+        const cleaned = (typeof pText === 'string' ? pText : '').trim()
+        if (cleaned) {
+          pages.push({ pageNumber: i + 1, text: cleaned })
+        }
+      })
 
-    mergedText = pages.map((p) => p.text).join('\n\n').trim()
+      mergedText = pages.map((p) => p.text).join('\n\n').trim()
+    }
   } catch (unpdfErr) {
     console.warn('[Extraction] unpdf primary extraction warning:', unpdfErr)
   }
