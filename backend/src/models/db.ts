@@ -195,9 +195,22 @@ export const DoubtModel = mongoose.models.Doubt || mongoose.model<Doubt>('Doubt'
 export const AnnouncementModel = mongoose.models.Announcement || mongoose.model<Announcement>('Announcement', AnnouncementSchema)
 
 // ---------------------------------------------------------------------------
-// Singleton Mongo Connection Manager (Serverless-Safe)
+// Singleton Mongo Connection Manager (Serverless-Safe, Never Buffers)
 // ---------------------------------------------------------------------------
+mongoose.set('bufferCommands', false)
+
+let lastMongoError: string | null = null
 let connectionPromise: Promise<typeof mongoose> | null = null
+
+export function getMongoStatus() {
+  return {
+    connected: Number(mongoose.connection.readyState) === 1,
+    readyState: mongoose.connection.readyState,
+    configured: !!config.mongoUri,
+    maskedUri: config.mongoUri ? config.mongoUri.replace(/:([^@]+)@/, ':****@') : 'not set',
+    lastError: lastMongoError,
+  }
+}
 
 export async function ensureConnected(): Promise<boolean> {
   if (Number(mongoose.connection.readyState) === 1) return true
@@ -205,14 +218,16 @@ export async function ensureConnected(): Promise<boolean> {
 
   if (!connectionPromise) {
     connectionPromise = mongoose.connect(config.mongoUri, {
-      serverSelectionTimeoutMS: 6000,
-      connectTimeoutMS: 6000,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
     }).then((m) => {
+      lastMongoError = null
       console.log('[Database] Connected to MongoDB Atlas successfully')
       return m
     }).catch((err) => {
       connectionPromise = null
-      console.warn('[Database] MongoDB Atlas connection error:', err?.message || err)
+      lastMongoError = err?.message || String(err)
+      console.warn('[Database] MongoDB Atlas connection error:', lastMongoError)
       return mongoose
     })
   }
@@ -265,8 +280,8 @@ export class DatabaseStore {
       sList.forEach((s: any) => this.submissions.set(s.id, s))
       dList.forEach((d: any) => this.doubts.set(d.id, d))
       annList.forEach((an: any) => this.announcements.set(an.id, an))
-    } catch (err) {
-      console.warn('[Database] Cache hydration error:', err)
+    } catch (err: any) {
+      console.warn('[Database] Cache hydration error:', err?.message)
     }
   }
 
@@ -275,13 +290,17 @@ export class DatabaseStore {
   async getUser(id: string): Promise<User | undefined> {
     const mem = this.users.get(id)
     if (mem) return mem
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      const doc = await UserModel.findOne({ id }).lean()
-      if (doc) {
-        this.users.set(doc.id, doc as any)
-        return doc as any
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await UserModel.findOne({ id }).lean()
+        if (doc) {
+          this.users.set(doc.id, doc as any)
+          return doc as any
+        }
       }
+    } catch (err: any) {
+      console.warn('[Database] getUser query error:', err?.message)
     }
     return undefined
   }
@@ -290,13 +309,17 @@ export class DatabaseStore {
     const lower = email.trim().toLowerCase()
     const mem = Array.from(this.users.values()).find((u) => u.email.toLowerCase() === lower)
     if (mem) return mem
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      const doc = await UserModel.findOne({ email: lower }).lean()
-      if (doc) {
-        this.users.set(doc.id, doc as any)
-        return doc as any
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await UserModel.findOne({ email: lower }).lean()
+        if (doc) {
+          this.users.set(doc.id, doc as any)
+          return doc as any
+        }
       }
+    } catch (err: any) {
+      console.warn('[Database] findUserByEmail query error:', err?.message)
     }
     return undefined
   }
@@ -304,23 +327,31 @@ export class DatabaseStore {
   async getCourse(id: string): Promise<Course | undefined> {
     const mem = this.courses.get(id)
     if (mem) return mem
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      const doc = await CourseModel.findOne({ id }).lean()
-      if (doc) {
-        this.courses.set(doc.id, doc as any)
-        return doc as any
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const doc = await CourseModel.findOne({ id }).lean()
+        if (doc) {
+          this.courses.set(doc.id, doc as any)
+          return doc as any
+        }
       }
+    } catch (err: any) {
+      console.warn('[Database] getCourse error:', err?.message)
     }
     return undefined
   }
 
   async getAllCourses(): Promise<Course[]> {
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      const docs = await CourseModel.find().lean()
-      docs.forEach((c: any) => this.courses.set(c.id, c))
-      return docs as any
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        const docs = await CourseModel.find().lean()
+        docs.forEach((c: any) => this.courses.set(c.id, c))
+        return docs as any
+      }
+    } catch (err: any) {
+      console.warn('[Database] getAllCourses error:', err?.message)
     }
     return Array.from(this.courses.values())
   }
@@ -329,73 +360,109 @@ export class DatabaseStore {
 
   async saveUser(user: User) {
     this.users.set(user.id, user)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await UserModel.findOneAndUpdate({ id: user.id }, user, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await UserModel.findOneAndUpdate({ id: user.id }, user, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveUser error:', err?.message)
     }
   }
 
   async saveCourse(course: Course) {
     this.courses.set(course.id, course)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await CourseModel.findOneAndUpdate({ id: course.id }, course, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await CourseModel.findOneAndUpdate({ id: course.id }, course, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveCourse error:', err?.message)
     }
   }
 
   async saveMaterial(mat: Material) {
     this.materials.set(mat.id, mat)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await MaterialModel.findOneAndUpdate({ id: mat.id }, mat, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await MaterialModel.findOneAndUpdate({ id: mat.id }, mat, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveMaterial error:', err?.message)
     }
   }
 
   async deleteMaterial(id: string) {
     this.materials.delete(id)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await MaterialModel.deleteOne({ id })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await MaterialModel.deleteOne({ id })
+      }
+    } catch (err: any) {
+      console.warn('[Database] deleteMaterial error:', err?.message)
     }
   }
 
   async saveAssignment(asg: Assignment) {
     this.assignments.set(asg.id, asg)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await AssignmentModel.findOneAndUpdate({ id: asg.id }, asg, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await AssignmentModel.findOneAndUpdate({ id: asg.id }, asg, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveAssignment error:', err?.message)
     }
   }
 
   async deleteAssignment(id: string) {
     this.assignments.delete(id)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await AssignmentModel.deleteOne({ id })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await AssignmentModel.deleteOne({ id })
+      }
+    } catch (err: any) {
+      console.warn('[Database] deleteAssignment error:', err?.message)
     }
   }
 
   async saveSubmission(sub: Submission) {
     this.submissions.set(sub.id, sub)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await SubmissionModel.findOneAndUpdate({ id: sub.id }, sub, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await SubmissionModel.findOneAndUpdate({ id: sub.id }, sub, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveSubmission error:', err?.message)
     }
   }
 
   async saveDoubt(doubt: Doubt) {
     this.doubts.set(doubt.id, doubt)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await DoubtModel.findOneAndUpdate({ id: doubt.id }, doubt, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await DoubtModel.findOneAndUpdate({ id: doubt.id }, doubt, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveDoubt error:', err?.message)
     }
   }
 
   async saveAnnouncement(ann: Announcement) {
     this.announcements.set(ann.id, ann)
-    await ensureConnected()
-    if (Number(mongoose.connection.readyState) === 1) {
-      await AnnouncementModel.findOneAndUpdate({ id: ann.id }, ann, { upsert: true, new: true })
+    try {
+      const ok = await ensureConnected()
+      if (ok) {
+        await AnnouncementModel.findOneAndUpdate({ id: ann.id }, ann, { upsert: true, new: true })
+      }
+    } catch (err: any) {
+      console.warn('[Database] saveAnnouncement error:', err?.message)
     }
   }
 }

@@ -65,7 +65,7 @@ export async function login(req: AuthenticatedRequest, res: Response) {
     }
 
     const user = await db.findUserByEmail(email.trim())
-    if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+    if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
       return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Invalid university email or password' })
     }
 

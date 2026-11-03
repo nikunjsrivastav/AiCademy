@@ -6,6 +6,7 @@ import path from 'node:path'
 import { config } from './config/index.js'
 import { apiRouter } from './routes/index.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { getMongoStatus, ensureConnected } from './models/db.js'
 
 export const app = express()
 
@@ -24,11 +25,13 @@ app.use('/uploads', express.static(uploadDir))
 app.use('/api', apiRouter)
 app.use('/', apiRouter)
 
-// Health check
-app.get(['/health', '/api/health'], (_req, res) => {
+// Health check with live MongoDB diagnostic
+app.get(['/health', '/api/health'], async (_req, res) => {
+  await ensureConnected().catch(() => false)
   res.json({
     status: 'ok',
     service: 'AiCademy API',
+    database: getMongoStatus(),
     timestamp: new Date().toISOString(),
     version: '1.0.0',
   })
