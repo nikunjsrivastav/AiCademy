@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production build outputs
+dist/
+*/dist/
+dist-ssr/
+
+# Environment files (preserve examples)
+.env
+.env.*
+!.env.example
+*.local
+
+# Vercel deployment artifacts
+.vercel/
+
+# Runtime uploads and ephemeral files
+uploads/
+*/uploads/
+tmp/
+temp/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and OS metadata
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.sw?

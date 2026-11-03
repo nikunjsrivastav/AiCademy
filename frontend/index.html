@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AiCademy · Agentic AI Classroom</title>
+    <meta
+      name="description"
+      content="AiCademy is an AI-enabled digital classroom where autonomous, tool-using agents tutor students, grade against rubrics, and coach professors, always with human approval."
+    />
+    <meta name="theme-color" content="#f6f7fb" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function() {
+        try {
+          // 1. Theme initializer (light / dark)
+          var savedTheme = localStorage.getItem('aicademy.theme');
+          if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+
+          // 2. Accent color initializer (prevents flash of default color)
+          var savedAccent = localStorage.getItem('aicademy.accent');
+          if (savedAccent) {
+            var parsed = JSON.parse(savedAccent);
+            var color = parsed.color || '#4255ff';
+            var root = document.documentElement;
+            var isDark = root.classList.contains('dark');
+
+            var presets = {
+              indigo: { hover: '#3244e8', softLight: '#edefff', softDark: 'rgba(66, 85, 255, 0.22)' },
+              blue: { hover: '#1d4ed8', softLight: '#eff6ff', softDark: 'rgba(37, 99, 235, 0.22)' },
+              cyan: { hover: '#0e7490', softLight: '#ecfeff', softDark: 'rgba(8, 145, 178, 0.22)' },
+              teal: { hover: '#0f766e', softLight: '#f0fdfa', softDark: 'rgba(13, 148, 136, 0.22)' },
+              emerald: { hover: '#047857', softLight: '#ecfdf5', softDark: 'rgba(5, 150, 105, 0.22)' },
+              amber: { hover: '#b45309', softLight: '#fffbeb', softDark: 'rgba(217, 119, 6, 0.22)' },
+              orange: { hover: '#c2410c', softLight: '#fff7ed', softDark: 'rgba(234, 88, 12, 0.22)' },
+              rose: { hover: '#be123c', softLight: '#fff1f2', softDark: 'rgba(225, 29, 72, 0.22)' },
+              pink: { hover: '#be185d', softLight: '#fdf2f8', softDark: 'rgba(219, 39, 119, 0.22)' },
+              fuchsia: { hover: '#a21caf', softLight: '#fae8ff', softDark: 'rgba(192, 38, 211, 0.22)' },
+              violet: { hover: '#6d28d9', softLight: '#f5f3ff', softDark: 'rgba(124, 58, 237, 0.22)' },
+              purple: { hover: '#7e22ce', softLight: '#faf5ff', softDark: 'rgba(147, 51, 234, 0.22)' }
+            };
+
+            var meta = presets[parsed.preset];
+            var hover = meta ? meta.hover : color;
+            var soft = meta ? (isDark ? meta.softDark : meta.softLight) : (isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.08)');
+
+            // Clean hex to RGB
+            var clean = color.replace('#', '');
+            var r = parseInt(clean.substring(0, 2), 16) || 0;
+            var g = parseInt(clean.substring(2, 4), 16) || 0;
+            var b = parseInt(clean.substring(4, 6), 16) || 0;
+
+            // Compute luminance & contrast
+            var rs = r / 255, gs = g / 255, bs = b / 255;
+            rs = rs <= 0.03928 ? rs / 12.92 : Math.pow((rs + 0.055) / 1.055, 2.4);
+            gs = gs <= 0.03928 ? gs / 12.92 : Math.pow((gs + 0.055) / 1.055, 2.4);
+            bs = bs <= 0.03928 ? bs / 12.92 : Math.pow((bs + 0.055) / 1.055, 2.4);
+            var lum = 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+            var contrast = (1.05 / (lum + 0.05)) >= 3.5 ? '#ffffff' : '#141722';
+
+            root.style.setProperty('--accent', color);
+            root.style.setProperty('--accent-hover', hover);
+            root.style.setProperty('--accent-soft', soft);
+            root.style.setProperty('--accent-contrast', contrast);
+            root.style.setProperty('--accent-ring', 'rgba(' + r + ',' + g + ',' + b + ', 0.35)');
+            root.style.setProperty('--accent-rgb', r + ',' + g + ',' + b);
+            root.style.setProperty('--iris-bolt', color);
+            root.style.setProperty('--blue', color);
+            root.style.setProperty('--blue-deep', hover);
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

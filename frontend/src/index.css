@@ -1,0 +1,274 @@
+/*
+ * AiCademy Design System — Quizlet Style Reference
+ * Reference: /DESIGN.md — "color-coded classroom on white"
+ */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Quizlet Design Tokens ---------- */
+:root {
+  /* Surfaces */
+  --bg: #f6f7fb;               /* Chalk Canvas — page floor */
+  --surface: #ffffff;          /* Paper White — card surfaces, inputs, modal backgrounds */
+  --surface-2: #edefff;        /* Lilac Wash — tinted section backgrounds, subtle highlight zones */
+  --surface-3: #e3e7fc;        /* Hover wash */
+  
+  /* Text & Inks */
+  --fg: #282e3e;               /* Ink Charcoal — primary text, warmer near-black navy */
+  --charcoal: #2e3856;         /* Deep Indigo — secondary body text */
+  --muted: #586380;            /* Slate Veil — muted helper text, secondary metadata */
+  --subtle: #939bb4;           /* Fog Mist — placeholder text, disabled states, hairlines */
+
+  /* Borders */
+  --line: #d9dde8;             /* Mist Border — hairline dividers, card edges, input borders */
+  --line-strong: #c2c8d7;      /* Stronger divider */
+
+  /* Dynamic Accent System (Task 1) */
+  --accent: #4255ff;
+  --accent-hover: #3244e8;
+  --accent-soft: #edefff;
+  --accent-contrast: #ffffff;
+  --accent-ring: rgba(66, 85, 255, 0.35);
+
+  /* Iris Bolt — The One Brand Violet Accent (aliases --accent) */
+  --iris-bolt: var(--accent);
+  --blue: var(--accent);
+  --blue-deep: var(--accent-hover);
+
+  /* Status Accents */
+  --status-green: #1ca330;
+  --status-yellow: #b37e09;
+  --status-red: #d83a31;
+
+  /* Shadows per DESIGN.md lines 80-87 & 300-304 */
+  --shadow-card: rgba(40, 46, 62, 0.1) 0px 4px 16px 0px;
+  --shadow-button: rgba(40, 46, 62, 0.1) 0px 2px 4px 0px;
+  --shadow-subtle: rgba(0, 0, 0, 0.3) 0px 0px 1px 0px inset;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #141722;
+  --surface: #1d2130;
+  --surface-2: #262c3f;
+  --surface-3: #313850;
+
+  --fg: #f4f5f8;
+  --charcoal: #d5d9e5;
+  --muted: #959fb5;
+  --subtle: #68728d;
+
+  --line: #2e364c;
+  --line-strong: #404a66;
+
+  /* Dynamic Accent in Dark Mode */
+  --accent: #5b6cff;
+  --accent-hover: #4255ff;
+  --accent-soft: rgba(91, 108, 255, 0.22);
+  --accent-contrast: #ffffff;
+  --accent-ring: rgba(91, 108, 255, 0.4);
+
+  --iris-bolt: var(--accent);
+  --blue: var(--accent);
+  --blue-deep: var(--accent-hover);
+
+  --status-green: #27c93f;
+  --status-yellow: #ffbd2e;
+  --status-red: #ff5f56;
+
+  --shadow-card: 0px 4px 16px 0px rgba(0, 0, 0, 0.4);
+  --shadow-button: 0px 2px 4px 0px rgba(0, 0, 0, 0.3);
+  --shadow-subtle: rgba(255, 255, 255, 0.1) 0px 0px 1px 0px inset;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-charcoal: var(--charcoal);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-ring: var(--accent-ring);
+  --color-iris-bolt: var(--accent);
+  --color-blue: var(--accent);
+  --color-blue-deep: var(--accent-hover);
+}
+
+@theme {
+  /* Fonts per DESIGN.md lines 33-38 & 330-332 (Hurme Geometric Sans with substitute: Inter) */
+  --font-sans: 'Inter', 'Hurme Geometric Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Colors per DESIGN.md lines 10-24 & 316-328 */
+  --color-iris-bolt: #4255ff;
+  --color-ink-charcoal: #282e3e;
+  --color-deep-indigo: #2e3856;
+  --color-slate-veil: #586380;
+  --color-fog-mist: #939bb4;
+  --color-pure-black: #000000;
+  --color-chalk-canvas: #f6f7fb;
+  --color-paper-white: #ffffff;
+  --color-lilac-wash: #edefff;
+  --color-mist-border: #d9dde8;
+
+  /* Feature card pastel accents per DESIGN.md lines 120, 184, 218 */
+  --color-pastel-cyan: #e0f7fa;
+  --color-pastel-magenta: #fce4ec;
+  --color-pastel-violet: #dbdfff;
+  --color-pastel-peach: #ffe0b2;
+
+  /* Typography Scale per DESIGN.md lines 40-51 & 333-348 */
+  --text-caption: 12px;
+  --leading-caption: 18px;
+  --text-body-sm: 14px;
+  --leading-body-sm: 20px;
+  --text-body: 16px;
+  --leading-body: 24px;
+  --text-subheading: 20px;
+  --leading-subheading: 28px;
+  --text-heading-sm: 24px;
+  --leading-heading-sm: 32px;
+  --text-heading: 32px;
+  --leading-heading: 41px;
+  --text-display: 44px;
+  --leading-display: 55px;
+
+
+
+  /* Radii per DESIGN.md lines 70-79 & 358-363 */
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-3xl: 24px;
+  --radius-full: 200px;
+
+  --radius-cards: 8px;
+  --radius-pills: 200px;
+  --radius-inputs: 4px;
+  --radius-buttons: 4px;
+  --radius-featurecards: 24px;
+
+  /* Shadows per DESIGN.md lines 80-87 & 364-368 */
+  --shadow-md: rgba(40, 46, 62, 0.1) 0px 4px 16px 0px;
+  --shadow-subtle: rgba(0, 0, 0, 0.3) 0px 0px 1px 0px inset;
+  --shadow-sm: rgba(40, 46, 62, 0.1) 0px 2px 4px 0px;
+
+  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-slide-up: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ---------- Base ---------- */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+}
+
+/* ---------- Quizlet Components ---------- */
+@layer components {
+  /* Study Set Card with 8px radius and subtle shadow per DESIGN.md line 122 */
+  .quizlet-card {
+    background: var(--surface);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--line);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .quizlet-card-interactive {
+    background: var(--surface);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--line);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    cursor: pointer;
+  }
+  .quizlet-card-interactive:hover {
+    transform: translateY(-2px);
+    border-color: var(--line-strong);
+    box-shadow: rgba(40, 46, 62, 0.14) 0px 6px 20px 0px;
+  }
+
+  /* Feature Category Card with 24px radius per DESIGN.md line 117 */
+  .feature-category-card {
+    border-radius: 24px;
+    padding: 24px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .feature-category-card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Promotional / Tinted Highlight Section per DESIGN.md line 142 */
+  .lilac-wash-panel {
+    background-color: var(--surface-2);
+    border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+
+  /* Filled Pill Button per DESIGN.md lines 97-100 */
+  .pill-button-primary {
+    background-color: #4255ff;
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 200px;
+    padding: 10px 24px;
+    box-shadow: var(--shadow-button);
+    transition: background-color 0.15s ease, transform 0.1s ease;
+  }
+  .pill-button-primary:hover {
+    background-color: #3446eb;
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+}
