@@ -9,5 +9,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   groqApiKey: process.env.GROQ_API_KEY || '',
   groqModel: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+  mongoUri: process.env.MONGODB_URI || '',
+  blobToken: process.env.BLOB_READ_WRITE_TOKEN || '',
 }
 

@@ -97,6 +97,7 @@ export async function createCourse(req: AuthenticatedRequest, res: Response) {
   }
 
   db.courses.set(newCourse.id, newCourse)
+  await db.saveCourse(newCourse)
   return res.status(201).json(enrichCourse(newCourse, user.id))
 }
 
@@ -119,6 +120,7 @@ export async function enrollCourse(req: AuthenticatedRequest, res: Response) {
   }
 
   course.studentIds.push(user.id)
+  await db.saveCourse(course)
   return res.json(enrichCourse(course, user.id))
 }
 

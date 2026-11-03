@@ -49,7 +49,7 @@ export async function askDoubt(req: AuthenticatedRequest, res: Response) {
     createdAt: new Date().toISOString(),
   }
 
-  db.doubts.set(doubt.id, doubt)
+  await db.saveDoubt(doubt)
   return res.status(201).json(doubt)
 }
 

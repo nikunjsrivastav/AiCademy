@@ -38,7 +38,7 @@ export async function createAnnouncement(req: AuthenticatedRequest, res: Respons
     createdAt: new Date().toISOString(),
   }
 
-  db.announcements.set(announcement.id, announcement)
+  await db.saveAnnouncement(announcement)
   return res.status(201).json(announcement)
 }
 

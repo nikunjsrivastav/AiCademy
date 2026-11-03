@@ -2,6 +2,7 @@ import type { Response } from 'express'
 import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Material, MaterialType } from '../types/index.js'
+import { uploadFileToStorage } from '../services/storageService.js'
 
 export async function listMaterials(req: AuthenticatedRequest, res: Response) {
   const { courseId } = req.params
@@ -44,20 +45,31 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
   else if (ext === 'pptx') matType = 'slides'
   else if (ext === 'txt' || ext === 'md') matType = 'notes'
 
+  let fileUrl = body.fileUrl || '/uploads/materials/doc.pdf'
+  let fileSize = body.fileSize || 102400
+  let mimeType = 'application/pdf'
+
+  if (file) {
+    const uploadRes = await uploadFileToStorage('materials', file)
+    fileUrl = uploadRes.url
+    fileSize = uploadRes.fileSize
+    mimeType = uploadRes.mimeType
+  }
+
   const newMaterial: Material = {
     id: `mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     courseId,
     title,
     description,
     type: matType,
-    fileUrl: file ? `/uploads/materials/${file.filename}` : (body.fileUrl || '/uploads/materials/doc.pdf'),
+    fileUrl,
     fileName: originalName,
-    fileSize: file ? file.size : (body.fileSize || 102400),
-    mimeType: file ? file.mimetype : 'application/pdf',
+    fileSize,
+    mimeType,
     uploaderId: user.id,
     indexing: {
       status: 'indexed',
-      chunkCount: Math.max(12, Math.floor((file?.size || 50000) / 1500)),
+      chunkCount: Math.max(12, Math.floor(fileSize / 1500)),
       chunkSize: 800,
       topics: [title.split(' ')[0] || 'Core', 'Concepts', 'Course Material'],
       lastIndexedAt: new Date().toISOString(),
@@ -65,7 +77,7 @@ export async function uploadMaterial(req: AuthenticatedRequest, res: Response) {
     createdAt: new Date().toISOString(),
   }
 
-  db.materials.set(newMaterial.id, newMaterial)
+  await db.saveMaterial(newMaterial)
   return res.status(201).json(newMaterial)
 }
 
@@ -81,7 +93,7 @@ export async function deleteMaterial(req: AuthenticatedRequest, res: Response) {
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Only course professor can delete materials' })
   }
 
-  db.materials.delete(materialId)
+  await db.deleteMaterial(materialId)
   return res.json({ success: true, message: 'Material deleted successfully' })
 }
 

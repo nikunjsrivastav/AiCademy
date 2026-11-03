@@ -47,7 +47,7 @@ export async function register(req: AuthenticatedRequest, res: Response) {
     createdAt: new Date().toISOString(),
   }
 
-  db.users.set(newUser.id, newUser)
+  await db.saveUser(newUser)
   const token = generateToken(newUser)
   return res.status(201).json({ token, user: sanitizeUser(newUser) })
 }

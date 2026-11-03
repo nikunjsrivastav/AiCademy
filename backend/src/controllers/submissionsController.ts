@@ -3,6 +3,7 @@ import { db } from '../models/db.js'
 import type { AuthenticatedRequest } from '../middleware/auth.js'
 import type { Submission } from '../types/index.js'
 import { evaluateSubmissionWithAI } from '../services/aiService.js'
+import { uploadFileToStorage } from '../services/storageService.js'
 
 export async function uploadSubmission(req: AuthenticatedRequest, res: Response) {
   const user = req.user!
@@ -27,6 +28,15 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     return res.status(400).json({ code: 'UNSUPPORTED_FORMAT', message: `File extension .${ext} is not allowed. Allowed: ${allowedExts.join(', ')}` })
   }
 
+  let fileUrl = body.fileUrl || '/uploads/submissions/file.zip'
+  let fileSize = body.fileSize || 50000
+
+  if (file) {
+    const uploadRes = await uploadFileToStorage('submissions', file)
+    fileUrl = uploadRes.url
+    fileSize = uploadRes.fileSize
+  }
+
   const now = new Date()
   const isLate = now.getTime() > new Date(assignment.dueDate).getTime()
 
@@ -49,9 +59,9 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     assignmentId,
     studentId: user.id,
     courseId: assignment.courseId,
-    fileUrl: file ? `/uploads/submissions/${file.filename}` : (body.fileUrl || '/uploads/submissions/file.zip'),
+    fileUrl,
     fileName: originalName,
-    fileSize: file ? file.size : (body.fileSize || 50000),
+    fileSize,
     extractedTextStatus: 'extracted',
     evaluationStatus: 'graded',
     marks: aiEval.marks,
@@ -65,7 +75,7 @@ export async function uploadSubmission(req: AuthenticatedRequest, res: Response)
     version,
   }
 
-  db.submissions.set(submission.id, submission)
+  await db.saveSubmission(submission)
   return res.status(201).json(submission)
 }
 

@@ -48,7 +48,7 @@ export async function createAssignment(req: AuthenticatedRequest, res: Response)
     createdAt: new Date().toISOString(),
   }
 
-  db.assignments.set(newAssignment.id, newAssignment)
+  await db.saveAssignment(newAssignment)
   return res.status(201).json(newAssignment)
 }
 
@@ -64,7 +64,7 @@ export async function deleteAssignment(req: AuthenticatedRequest, res: Response)
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Only course professor can delete assignments' })
   }
 
-  db.assignments.delete(assignmentId)
+  await db.deleteAssignment(assignmentId)
   return res.json({ success: true, message: 'Assignment deleted' })
 }
 
