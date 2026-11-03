@@ -1,5 +1,4 @@
 import zlib from 'node:zlib'
-import { PDFParse } from 'pdf-parse'
 
 export interface ExtractedDocument {
   text: string
@@ -10,7 +9,112 @@ export interface ExtractedDocument {
 }
 
 /**
+ * Pure Node.js Serverless-Safe PDF Text Extractor.
+ * Zero native binary dependencies, zero canvas, zero DOMMatrix.
+ * Decompresses Flate (zlib) streams and decodes Tj, TJ, and hex text operators.
+ */
+function extractTextFromPdfBuffer(buffer: Buffer): { text: string; pageCount: number } {
+  let combinedText = ''
+  let pageCount = 0
+
+  const str = buffer.toString('binary')
+
+  // Approximate page count from /Type /Page occurrences
+  const pageMatches = str.match(/\/Type\s*\/Page\b/g)
+  if (pageMatches) {
+    pageCount = pageMatches.length
+  }
+
+  // Find all stream ... endstream blocks
+  const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g
+  let match: RegExpExecArray | null
+
+  while ((match = streamRegex.exec(str)) !== null) {
+    const rawStream = Buffer.from(match[1], 'binary')
+    let decompressed: Buffer
+
+    try {
+      decompressed = zlib.inflateSync(rawStream)
+    } catch {
+      try {
+        decompressed = zlib.inflateRawSync(rawStream)
+      } catch {
+        decompressed = rawStream
+      }
+    }
+
+    const content = decompressed.toString('latin1')
+
+    // 1. Array TJ text operator: [(text) -120 (more)] TJ
+    const arrayMatches = content.match(/\[(.*?)\]\s*TJ/g) || []
+    for (const arr of arrayMatches) {
+      const parts = arr.match(/\((.*?)\)/g) || []
+      for (const p of parts) {
+        const unescaped = decodePdfString(p.slice(1, -1))
+        if (unescaped.trim()) combinedText += unescaped + ' '
+      }
+    }
+
+    // 2. Simple Tj text operator: (text) Tj
+    const tjMatches = content.match(/\((.*?)\)\s*T[jJ]/g) || []
+    for (const m of tjMatches) {
+      const inner = m.replace(/^[\\(]/, '').replace(/[\\)]\s*T[jJ]$/, '')
+      const unescaped = decodePdfString(inner)
+      if (unescaped.trim()) combinedText += unescaped + ' '
+    }
+
+    // 3. Hex string operator: <48656C6C6F> Tj
+    const hexMatches = content.match(/<([0-9a-fA-F\s]+)>\s*T[jJ]/g) || []
+    for (const h of hexMatches) {
+      const hexStr = h.replace(/^[<]/, '').replace(/[>]\s*T[jJ]$/, '').replace(/\s+/g, '')
+      try {
+        const decodedHex = Buffer.from(hexStr, 'hex').toString('utf-8')
+        if (decodedHex.trim()) combinedText += decodedHex + ' '
+      } catch {}
+    }
+  }
+
+  // If streams were encrypted or non-standard, fallback to printable ASCII / UTF-8 scanning
+  if (combinedText.trim().length < 30) {
+    const readable = str
+      .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (readable.length > 50) {
+      // Filter out PDF internal metadata syntax (/Font, /ProcSet, etc.)
+      const cleaned = readable
+        .split(' ')
+        .filter((w) => !w.startsWith('/') && !w.startsWith('obj') && !w.startsWith('endobj') && w.length < 40)
+        .join(' ')
+      if (cleaned.length > 30) {
+        combinedText = cleaned
+      }
+    }
+  }
+
+  return {
+    text: combinedText.trim(),
+    pageCount: Math.max(1, pageCount),
+  }
+}
+
+/**
+ * Unescapes PDF literal strings (\n, \r, \t, octal \ddd, etc.)
+ */
+function decodePdfString(s: string): string {
+  return s
+    .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')')
+    .replace(/\\\\/g, '\\')
+}
+
+/**
  * Extracts plain text from an uploaded buffer (PDF, DOCX, TXT, Code, Markdown).
+ * 100% serverless safe with zero native dependencies.
  */
 export async function extractTextFromBuffer(
   buffer: Buffer,
@@ -23,37 +127,15 @@ export async function extractTextFromBuffer(
 
   try {
     if (ext === 'pdf' || mimeType?.includes('pdf')) {
-      try {
-        const parser = new PDFParse({ data: buffer })
-        const result = await parser.getText()
-        text = result.text.trim()
-        pageCount = result.total
-      } catch (pdfErr) {
-        console.warn(`[Extraction] PDFParse error on ${fileName}:`, pdfErr)
-        // Fallback: extract ASCII / UTF-8 readable text segments
-        const raw = buffer.toString('binary')
-        const matches = raw.match(/\((.*?)\)\s*T[jJ]/g)
-        if (matches && matches.length > 0) {
-          text = matches
-            .map((m) => m.replace(/^[\\(]/, '').replace(/[\\)]\s*T[jJ]$/, ''))
-            .filter((s) => s.length > 2)
-            .join(' ')
-        } else {
-          // Fallback to printable ascii
-          text = raw
-            .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-        }
-      }
+      const result = extractTextFromPdfBuffer(buffer)
+      text = result.text
+      pageCount = result.pageCount
     } else if (ext === 'docx') {
       // DOCX is a zip archive containing word/document.xml
       try {
-        // Search for PK header (zip)
         const str = buffer.toString('binary')
         const docXmlIndex = str.indexOf('word/document.xml')
         if (docXmlIndex !== -1) {
-          // Extract text between <w:t> tags from raw xml if possible
           const tagMatches = str.match(/<w:t[^>]*>([^<]+)<\/w:t>/g)
           if (tagMatches && tagMatches.length > 0) {
             text = tagMatches.map((m) => m.replace(/<[^>]+>/g, '')).join(' ')
@@ -106,6 +188,7 @@ export function extractKeyTopics(text: string, fileName?: string): string[] {
     'not', 'but', 'can', 'all', 'any', 'we', 'you', 'your', 'our', 'my', 'their', 'they',
     'will', 'would', 'should', 'could', 'about', 'each', 'into', 'then', 'than', 'more',
     'some', 'such', 'when', 'what', 'where', 'who', 'how', 'why', 'over', 'page', 'total',
+    'stream', 'endstream', 'xref', 'trailer', 'startxref',
   ])
 
   // Look for section headers (e.g., "# Title", "1. Title", capitalized phrases)
