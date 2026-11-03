@@ -1,8 +1,10 @@
 import time
-import uuid
-from typing import List, Dict, Any, Optional
-from ..models import AgentRunResponse, AgentStepModel, AgentKind
-from ..groq_client import groq_service
+from typing import List, Dict, Any
+
+try:
+    from app.models import AgentRunResponse, AgentStepModel, AgentKind
+except ImportError:
+    from ..models import AgentRunResponse, AgentStepModel, AgentKind
 
 def execute_agent_run(
     agent: AgentKind,
@@ -241,3 +243,4 @@ def execute_agent_run(
             estimatedCostUsd=round(total_tokens * 0.0000008, 6),
             steps=steps
         )
+

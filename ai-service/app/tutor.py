@@ -1,14 +1,27 @@
-from typing import List, Dict, Any
-from .models import (
-    AskDoubtRAGRequest,
-    AskDoubtRAGResponse,
-    Citation,
-    ScoreDoubtQualityRequest,
-    ScoreDoubtQualityResponse,
-    DoubtQualityBreakdown
-)
-from .vector_store import vector_store
-from .groq_client import groq_service
+from typing import List
+
+try:
+    from app.models import (
+        AskDoubtRAGRequest,
+        AskDoubtRAGResponse,
+        Citation,
+        ScoreDoubtQualityRequest,
+        ScoreDoubtQualityResponse,
+        DoubtQualityBreakdown
+    )
+    from app.vector_store import vector_store
+    from app.groq_client import groq_service
+except ImportError:
+    from .models import (
+        AskDoubtRAGRequest,
+        AskDoubtRAGResponse,
+        Citation,
+        ScoreDoubtQualityRequest,
+        ScoreDoubtQualityResponse,
+        DoubtQualityBreakdown
+    )
+    from .vector_store import vector_store
+    from .groq_client import groq_service
 
 TUTOR_SYSTEM_PROMPT = """You are the AiCademy Academic AI Tutor.
 Your goal is to guide students to deep understanding of university curriculum concepts.
@@ -107,3 +120,4 @@ def score_doubt_quality(req: ScoreDoubtQualityRequest) -> ScoreDoubtQualityRespo
         ),
         feedback=feedback
     )
+

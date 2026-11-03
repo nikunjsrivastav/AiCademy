@@ -1,6 +1,5 @@
-import math
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 class VectorChunk:
     def __init__(self, id: str, material_id: str, course_id: str, title: str, text: str, page_number: int = 1):
@@ -64,7 +63,7 @@ class CourseVectorStore:
         if not q_tokens:
             return []
 
-        scored: List[tuple[float, VectorChunk]] = []
+        scored: List[Tuple[float, VectorChunk]] = []
         for chk in chunks:
             score = 0.0
             for tok in q_tokens:
@@ -96,3 +95,4 @@ class CourseVectorStore:
         return list(dict.fromkeys(words))[:4]
 
 vector_store = CourseVectorStore()
+

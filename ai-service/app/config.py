@@ -13,3 +13,4 @@ class Settings:
     CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "150"))
 
 settings = Settings()
+

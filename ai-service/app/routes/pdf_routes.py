@@ -1,17 +1,33 @@
-from fastapi import APIRouter, HTTPException, Depends
-from ..models import (
-    IngestMaterialRequest,
-    IngestMaterialResponse,
-    EvaluateAssignmentRequest,
-    EvaluateAssignmentResponse,
-    AskDoubtRAGRequest,
-    AskDoubtRAGResponse,
-    ScoreDoubtQualityRequest,
-    ScoreDoubtQualityResponse,
-)
-from ..vector_store import vector_store
-from ..evaluator import evaluate_submission
-from ..tutor import answer_doubt_rag, score_doubt_quality
+from fastapi import APIRouter, HTTPException
+
+try:
+    from app.models import (
+        IngestMaterialRequest,
+        IngestMaterialResponse,
+        EvaluateAssignmentRequest,
+        EvaluateAssignmentResponse,
+        AskDoubtRAGRequest,
+        AskDoubtRAGResponse,
+        ScoreDoubtQualityRequest,
+        ScoreDoubtQualityResponse,
+    )
+    from app.vector_store import vector_store
+    from app.evaluator import evaluate_submission
+    from app.tutor import answer_doubt_rag, score_doubt_quality
+except ImportError:
+    from ..models import (
+        IngestMaterialRequest,
+        IngestMaterialResponse,
+        EvaluateAssignmentRequest,
+        EvaluateAssignmentResponse,
+        AskDoubtRAGRequest,
+        AskDoubtRAGResponse,
+        ScoreDoubtQualityRequest,
+        ScoreDoubtQualityResponse,
+    )
+    from ..vector_store import vector_store
+    from ..evaluator import evaluate_submission
+    from ..tutor import answer_doubt_rag, score_doubt_quality
 
 router = APIRouter(tags=["PDF Architecture Endpoints"])
 
@@ -56,3 +72,4 @@ def score_quality(req: ScoreDoubtQualityRequest):
         return score_doubt_quality(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

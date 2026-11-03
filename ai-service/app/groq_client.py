@@ -1,7 +1,10 @@
-import json
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from groq import Groq
-from .config import settings
+
+try:
+    from app.config import settings
+except ImportError:
+    from .config import settings
 
 class GroqService:
     def __init__(self):
@@ -45,3 +48,4 @@ class GroqService:
             return None
 
 groq_service = GroqService()
+

@@ -1,5 +1,9 @@
-from typing import Dict, Any, List
-from ..models import ToolDefinitionModel
+from typing import List
+
+try:
+    from app.models import ToolDefinitionModel
+except ImportError:
+    from ..models import ToolDefinitionModel
 
 TOOLS: List[ToolDefinitionModel] = [
     ToolDefinitionModel(
@@ -125,3 +129,4 @@ TOOLS: List[ToolDefinitionModel] = [
 
 def get_registered_tools() -> List[ToolDefinitionModel]:
     return TOOLS
+

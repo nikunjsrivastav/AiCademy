@@ -1,8 +1,14 @@
 from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, Body
-from ..models import AgentRunResponse, ToolDefinitionModel
-from ..agents.registry import get_registered_tools
-from ..agents.orchestrator import execute_agent_run
+from fastapi import APIRouter, Body
+
+try:
+    from app.models import AgentRunResponse, ToolDefinitionModel
+    from app.agents.registry import get_registered_tools
+    from app.agents.orchestrator import execute_agent_run
+except ImportError:
+    from ..models import AgentRunResponse, ToolDefinitionModel
+    from ..agents.registry import get_registered_tools
+    from ..agents.orchestrator import execute_agent_run
 
 router = APIRouter(prefix="/agents", tags=["EXTENSION Agent Endpoints"])
 
@@ -57,3 +63,4 @@ def run_coach(payload: Dict[str, Any] = Body(...)):
     actor_role = payload.get("actorRole", "student")
     trigger = payload.get("trigger", "deadline_approaching")
     return execute_agent_run("study_coach", trigger, course_id, actor_id, actor_role, payload)
+

@@ -1,9 +1,15 @@
 import json
-from typing import List, Dict, Any
-from .models import EvaluateAssignmentRequest, EvaluateAssignmentResponse, RubricScoreItem
-from .vector_store import vector_store
-from .critic import check_prompt_injection
-from .groq_client import groq_service
+
+try:
+    from app.models import EvaluateAssignmentRequest, EvaluateAssignmentResponse, RubricScoreItem
+    from app.vector_store import vector_store
+    from app.critic import check_prompt_injection
+    from app.groq_client import groq_service
+except ImportError:
+    from .models import EvaluateAssignmentRequest, EvaluateAssignmentResponse, RubricScoreItem
+    from .vector_store import vector_store
+    from .critic import check_prompt_injection
+    from .groq_client import groq_service
 
 PROFESSOR_VANCE_PERSONA = """You are Professor Eleanor Vance, a distinguished, exacting, yet deeply pedagogical computer science professor and senior academic evaluator at AiCademy.
 
@@ -154,3 +160,4 @@ Produce JSON format:
         confidence=0.88,
         needsHumanApproval=False
     )
+

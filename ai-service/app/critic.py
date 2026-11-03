@@ -22,3 +22,4 @@ def check_prompt_injection(text: str) -> Tuple[bool, str]:
         if match:
             return True, f"Detected adversarial prompt injection pattern: '{match.group(0)}'"
     return False, "Clean input. No adversarial jailbreak patterns detected."
+

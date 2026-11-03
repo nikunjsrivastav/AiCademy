@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # PDF Section 3.3 Internal AI Schemas
@@ -133,3 +133,4 @@ class ToolDefinitionModel(BaseModel):
     description: str
     parameters: Dict[str, Any]
     permissionRole: Literal["all", "student", "professor", "admin"]
+

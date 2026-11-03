@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi.testclient import TestClient
 from main import app
 
@@ -112,3 +117,4 @@ def test_orchestrator_agent():
     data = res.json()
     assert data["status"] == "completed"
     assert len(data["steps"]) >= 4
+
