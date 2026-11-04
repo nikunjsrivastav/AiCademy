@@ -53,6 +53,82 @@ const CANDIDATE_GROQ_MODELS = [
   'llama-3.1-8b-instant',
 ]
 
+const CANDIDATE_GEMINI_MODELS = [
+  'gemini-flash-latest',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-pro',
+]
+
+/**
+ * Executes a Google Gemini API completion with multi-model fallback resiliency.
+ * Pure global fetch, zero native dependencies, 100% serverless/Vercel safe.
+ */
+async function callGeminiApi(
+  systemInstruction: string,
+  userPrompt: string,
+  temperature = 0.1,
+  jsonFormat = true
+): Promise<string | null> {
+  if (!config.geminiApiKey || config.nodeEnv === 'test') return null
+
+  const modelsToTry = Array.from(new Set([config.geminiModel, ...CANDIDATE_GEMINI_MODELS].filter(Boolean)))
+  let lastError: any = null
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`[AI Service] Calling Google Gemini API with model: ${model}`)
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey}`
+
+      const payload: any = {
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }],
+          },
+        ],
+        generationConfig: {
+          temperature,
+          ...(jsonFormat ? { responseMimeType: 'application/json' } : {}),
+        },
+      }
+
+      if (systemInstruction && systemInstruction.trim().length > 0) {
+        payload.system_instruction = {
+          parts: [{ text: systemInstruction }],
+        }
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000),
+      })
+
+      if (!res.ok) {
+        const errBody = await res.text()
+        console.warn(`[AI Service] Gemini model '${model}' notice (HTTP ${res.status}):`, errBody.slice(0, 250))
+        lastError = new Error(`Gemini HTTP ${res.status}: ${errBody}`)
+        continue
+      }
+
+      const data = (await res.json()) as any
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      if (text) {
+        console.log(`[AI Service] Google Gemini API evaluation succeeded with model: ${model}`)
+        return text
+      }
+    } catch (err: any) {
+      lastError = err
+      console.warn(`[AI Service] Gemini call failed on '${model}':`, err?.message || err)
+    }
+  }
+
+  console.warn('[AI Service] All Google Gemini models failed:', lastError?.message || lastError)
+  return null
+}
+
 let discoveredLocalModel: string | null = null
 
 /**
@@ -249,12 +325,17 @@ ${materialContext}
 
   let answerText: string | null = null
 
-  // Tier 1: Try Local LLM (Ollama)
-  if (config.useLocalLlm) {
+  // Tier 1: Try Google Gemini API (Free Cloud Tier)
+  if (config.geminiApiKey) {
     try {
-      answerText = await callLocalLlm(tutorMessages, 0.2, false)
+      answerText = await callGeminiApi(
+        tutorMessages[0].content,
+        tutorMessages[1].content,
+        0.2,
+        false
+      )
     } catch (err: any) {
-      console.warn('[AI Service] Local LLM tutor query failed:', err?.message || err)
+      console.warn('[AI Service] Gemini tutor query failed:', err?.message || err)
     }
   }
 
@@ -272,6 +353,15 @@ ${materialContext}
       } catch (err: any) {
         console.warn('[AI Service] Groq tutor query failed:', err?.message || err)
       }
+    }
+  }
+
+  // Tier 3: Try Local LLM (Ollama)
+  if (!answerText && config.useLocalLlm) {
+    try {
+      answerText = await callLocalLlm(tutorMessages, 0.2, false)
+    } catch (err: any) {
+      console.warn('[AI Service] Local LLM tutor query failed:', err?.message || err)
     }
   }
 
@@ -347,12 +437,17 @@ export async function scoreQuestionQualityWithAI(question: string): Promise<Ques
 
   let rawJson: string | null = null
 
-  // Tier 1: Local LLM (Ollama)
-  if (config.useLocalLlm) {
+  // Tier 1: Google Gemini API (Free Cloud Tier)
+  if (config.geminiApiKey) {
     try {
-      rawJson = await callLocalLlm(qualityMessages, 0.1, true)
+      rawJson = await callGeminiApi(
+        qualityMessages[0].content,
+        qualityMessages[1].content,
+        0.1,
+        true
+      )
     } catch (err: any) {
-      console.warn('[AI Service] Local LLM question quality scoring notice:', err?.message || err)
+      console.warn('[AI Service] Gemini question quality scoring notice:', err?.message || err)
     }
   }
 
@@ -371,6 +466,15 @@ export async function scoreQuestionQualityWithAI(question: string): Promise<Ques
       } catch (err: any) {
         console.warn('[AI Service] Groq question quality scoring failed:', err?.message || err)
       }
+    }
+  }
+
+  // Tier 3: Local LLM (Ollama)
+  if (!rawJson && config.useLocalLlm) {
+    try {
+      rawJson = await callLocalLlm(qualityMessages, 0.1, true)
+    } catch (err: any) {
+      console.warn('[AI Service] Local LLM question quality scoring notice:', err?.message || err)
     }
   }
 
@@ -572,12 +676,17 @@ ${submissionContent.slice(0, 45000)}
 
   let rawJsonResult: string | null = null
 
-  // Tier 1: Local LLM (Ollama) if available
-  if (config.useLocalLlm) {
+  // Tier 1: Google Gemini API (Recommended for Vercel Free Tier)
+  if (config.geminiApiKey) {
     try {
-      rawJsonResult = await callLocalLlm(evalMessages, 0.1, true)
+      rawJsonResult = await callGeminiApi(
+        evalMessages[0].content,
+        evalMessages[1].content,
+        0.1,
+        true
+      )
     } catch (err: any) {
-      console.warn('[AI Service] Local LLM evaluation notice:', err?.message || err)
+      console.warn('[AI Service] Gemini evaluation notice:', err?.message || err)
     }
   }
 
@@ -592,7 +701,16 @@ ${submissionContent.slice(0, 45000)}
       })
       rawJsonResult = completion.choices[0]?.message?.content || null
     } catch (err) {
-      console.warn('[AI Service] Groq persona rubric grading failed, using heuristic evaluation:', err)
+      console.warn('[AI Service] Groq persona rubric grading failed:', err)
+    }
+  }
+
+  // Tier 3: Local LLM (Ollama) if available
+  if (!rawJsonResult && config.useLocalLlm) {
+    try {
+      rawJsonResult = await callLocalLlm(evalMessages, 0.1, true)
+    } catch (err: any) {
+      console.warn('[AI Service] Local LLM evaluation notice:', err?.message || err)
     }
   }
 

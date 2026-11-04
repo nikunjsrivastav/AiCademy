@@ -7,6 +7,8 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN || '*',
   uploadDir: process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : 'uploads'),
   nodeEnv: process.env.NODE_ENV || 'development',
+  geminiApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
   groqApiKey: process.env.GROQ_API_KEY || '',
   groqModel: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
   mongoUri: process.env.MONGODB_URI || '',
